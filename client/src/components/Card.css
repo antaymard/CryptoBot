@@ -1,0 +1,121 @@
+/* ======= Card Structure */
+.cardBody {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  margin: 15px auto;
+  display: flex;
+  flex-direction: column;
+  color : black;
+  background-color: white;
+  border-radius: 3px;
+}
+.topCardSection {
+  display : flex;
+  flex-direction : row;
+  justify-content : space-between;
+  padding : 5px 10px;
+}
+.cardSection {
+  display: flex;
+  flex-direction: column;
+}
+.botCardSection{
+  width: 100%;
+  background-color: #607D8B;
+  height: 50px;
+  /* box-shadow: inset 1px 15px 40px -15px; */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-radius: 0 0 3px 3px;
+}
+.popUpBtnDiv {
+  width: 600px;
+  z-index: 20;
+  position: absolute;
+  bottom: 40px;
+  color: white;
+  padding: 10px;
+  border: solid 1px #03A9F4;
+}
+.orderDivHeader{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.orderDivBody {
+  background-color: white;
+  color: black;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  max-height: 520px;
+  overflow-y: scroll;
+}
+
+
+/* ======= Card Detail */
+.title {
+  font-size: 20px;
+  font-weight: 800;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.title a {
+  margin-left: 5px;
+}
+
+.balanceDiv {
+  display: flex;
+  flex-direction: row;
+}
+
+
+
+/* ======= Button Style */
+ .backDropped-light {
+   background-color: rgba(255,255,255,0.35);
+   backdrop-filter : blur(5px);
+   -webkit backdrop-filter : blur(5px);
+   border-radius: 0px;
+ }
+ .backDropped-dark {
+   background-color: rgba(0,0,0,0.28);
+   backdrop-filter : blur(5px);
+   -webkit backdrop-filter : blur(5px);
+   border-radius: 0px;
+ }
+ .buyBtn:hover {
+   background-color: rgba(76, 175, 80, 0.55);
+   color: white;
+ }
+ .sellBtn:hover {
+   background-color: rgba(244, 67, 54, 0.55);
+   color: white;
+ }
+ .orderBtn:hover {
+   background-color: rgba(33, 150, 243, 0.25);
+   color: white;
+ }
+ .tradingBtn:hover {
+   background-color: rgba(255, 87, 34, 0.25);
+   color: white;
+ }
+ .btn-selectedDateForCharts {
+   background-color: #90A4AE;
+ }
+ .isSelectedDate {
+   background-color: #78909C;
+   color: white;
+ }
+ .btn-selectedDateForCharts:hover {
+   background-color: #CFD8DC;
+ }

@@ -1,0 +1,31 @@
+{
+  "name": "CryptoBotv2",
+  "version": "2.0.0",
+  "description": "Version 2 of the bot, made with ReactJS !",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antaymard/CryptoBotv1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/antaymard/CryptoBotv1/issues"
+  },
+  "homepage": "https://github.com/antaymard/CryptoBotv1#readme",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "colors": "^1.1.2",
+    "express": "^4.16.2",
+    "mongoose": "^5.0.1",
+    "node-bittrex-api": "^0.8.1",
+    "node-fetch": "^1.7.3",
+    "ontime": "0.0.4",
+    "request": "^2.83.0"
+  }
+}
