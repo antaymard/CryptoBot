@@ -14,6 +14,8 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid,
 import LoadingIcon from 'react-icons/lib/md/autorenew';
 import CloseIcon from 'react-icons/lib/md/close.js';
 import LoupeIcon from 'react-icons/lib/md/search.js';
+import RefreshIcon from 'react-icons/lib/md/refresh';
+
 
 
 
@@ -49,7 +51,7 @@ class WalletLineChart extends Component {
           <CartesianGrid strokeDasharray="3 3" />
           < Tooltip />
         </LineChart>
-      </ ResponsiveContainer>
+      </ResponsiveContainer>
     )
   }
   }
@@ -93,7 +95,9 @@ class ClassicWallet extends Component {
   getAllBalances = () => {
     fetch('/api/getAllBalances')
       .then(res => res.json())
-      .then(res => this.setState( { walletList : res } ))
+      .then(res => {
+        this.setState( { walletList : res } );
+      })
   }
 
   // récupère des datas des cartes enfants
@@ -167,6 +171,10 @@ class ClassicWallet extends Component {
     event.preventDefault();
   }
 
+  handleRefreshAll = () => {
+    console.log("Clicked");
+    this.getAllBalances();
+  }
 
   render() {
     if (this.state.walletList == null) {
@@ -205,6 +213,12 @@ class ClassicWallet extends Component {
             </div>
 
             <div style={{display:"flex", flexDirection:"row", alignItems:"center"}}>
+              <button className='btn btn-selectedDateForCharts'
+                name='refresh' style={{marginRight:'10px'}}
+                onClick={this.handleRefreshAll}>
+                <RefreshIcon/>
+              </button>
+
               <div className="btn-group" role="group">
                 {this.renderDateChartButtons()}
               </div>
@@ -227,7 +241,7 @@ class ClassicWallet extends Component {
             </div>
           : null}
 
-          <RefCurrCard currency='BTC' selectedDateForCharts={this.state.selectedDateForCharts}/>
+          {this.state.walletList.filter(r => (r.Currency === "BTC")).length > 0 ? null : <RefCurrCard currency='BTC' selectedDateForCharts={this.state.selectedDateForCharts}/>}
 
           {this.renderWalletCards()}
 

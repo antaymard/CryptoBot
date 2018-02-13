@@ -6,7 +6,8 @@ import Draggable from 'react-draggable';
 
 import './Card.css';
 
-import CloseIcon from 'react-icons/lib/md/close.js'
+import CloseIcon from 'react-icons/lib/md/close.js';
+import RefreshIcon from 'react-icons/lib/md/refresh';
 
 
 class OrderDiv extends Component {
@@ -35,7 +36,7 @@ class OrderDiv extends Component {
     if (this.props.data) {
       return(
         <Draggable handle=".orderDivHeader">
-        <div className="popUpBtnDiv backDropped-dark" style={{right:"0px"}}>
+        <div className="popUpBtnDiv backDropped-dark" style={{right:"0px", width:'900px'}}>
           <div className='orderDivHeader'>
             <p>{this.props.data.length} Transaction(s) {this.props.data[0].Exchange}</p>
             <div>
@@ -225,6 +226,9 @@ class TradingDiv extends Component {
 
 class Card extends Component {
   state = {
+    sendToParentIsOver : false,
+    autoRefresh : false,
+    reRender : true,
     cours : null,
     balance : this.props.balance,
     eqBtc : null,
@@ -240,12 +244,23 @@ class Card extends Component {
     this.getOrderHistory();
   }
 
+  // Gestion du reRender en cliquant sur le btn => cf refreshCard()
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.reRender !== this.state.reRender) {
+      this.getCurrencyCours();
+      this.getOrderHistory();
+    }
+  }
+
+
+
   // Send EqBTC to the parent
   sendEqBtcToParent = () => {
     if (this.props.sendEqBtcToParent) {
       var _curr = this.props.currency;
       var _eq = this.state.eqBtc;
       this.props.sendEqBtcToParent({Currency : _curr, EqBtc : _eq});
+      this.setState({sendToParentIsOver : true})
     }
   }
 
@@ -254,7 +269,6 @@ class Card extends Component {
     fetch('/api/getCurrencyCours/' + this.props.currency)
       .then(res => res.json())
       .then(res => {
-        console.log(res);
         if (res) {
           this.setState({cours : res.Last});
           var _eqBtc = this.props.balance*res.Last;
@@ -264,7 +278,9 @@ class Card extends Component {
             this.setState({eqBtc : _eqBtc});
           }
         }
-        this.sendEqBtcToParent();
+        if (!this.state.sendToParentIsOver) {
+          this.sendEqBtcToParent();
+        }
       })
   }
 
@@ -304,6 +320,20 @@ class Card extends Component {
     this.setState({ showTradingDiv: !this.state.showTradingDiv, operation : e.target.name });
   }
 
+  refreshCard = () => {
+    this.setState({ reRender : !this.state.reRender});
+  }
+
+  switchAutoRefresh = () => {
+    if (!this.state.autoRefresh) {
+      setInterval(this.refreshCard, 30000);
+      this.setState({ autoRefresh : true});
+    } else if (this.state.autoRefresh) {
+      clearInterval(this.timer);
+      this.setState({ autoRefresh : false});
+    }
+  }
+
   render() {
     return (
     <div className="cardBody">
@@ -338,14 +368,22 @@ class Card extends Component {
       <div className="botCardSection">
 
         <div style={{position : 'relative'}}>
-          <button className='btn backDropped-light buyBtn' name="BUY" style={{marginRight:"10px"}} onClick={this.handleClick2}>
-            Acheter</button>
-          <button className='btn backDropped-light sellBtn' name="SELL" onClick={this.handleClick2}>
-            Vendre</button>
-            { this.state.showTradingDiv ? <TradingDiv operation={this.state.operation} currency={this.props.currency}>
-              <CloseIcon onClick={this.handleClick2}/>
-            </TradingDiv>
-            : null }
+          <button className={'btn classicBotBtn refreshBtn ' + (this.state.autoRefresh ? 'autoRefreshBtnActive' : null)}
+            name='refresh' style={{marginRight:'10px'}}
+            onClick={this.refreshCard} onDoubleClick={this.switchAutoRefresh}>
+            <RefreshIcon/>
+          </button>
+          <button className='btn classicBotBtn buyBtn' name="BUY" style={{marginRight:"10px"}} onClick={this.handleClick2}>
+            Acheter
+          </button>
+          <button className='btn classicBotBtn sellBtn' name="SELL" onClick={this.handleClick2}>
+            Vendre
+          </button>
+
+          { this.state.showTradingDiv ? <TradingDiv operation={this.state.operation} currency={this.props.currency}>
+            <CloseIcon onClick={this.handleClick2}/>
+          </TradingDiv>
+          : null }
         </div>
 
         <div style={{display:"flex", flexDirection:"row", alignItems:"center"}}>
@@ -353,7 +391,7 @@ class Card extends Component {
             {this.displayLastBuyOrder()}
           </div>
           <div style={{position : 'relative'}}>
-            <button className='btn backDropped-light orderBtn' style={{borderRadius:"0px"}} onClick={this.handleClick}>
+            <button className='btn classicBotBtn orderBtn' onClick={this.handleClick}>
               Passed Orders</button>
             { this.state.showOrderDiv ? <OrderDiv data={this.state.orderHistory}>
               <CloseIcon onClick={this.handleClick}/>

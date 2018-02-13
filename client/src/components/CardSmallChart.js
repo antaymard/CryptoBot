@@ -14,7 +14,7 @@ class CardSmallChart extends Component {
   }
 
   drawChart = () => {
-    this.setState({res:false})
+    this.setState({res:false});
     fetch('/api/getCandle/' + this.props.currency + '/' + this.props.selectedDateForCharts)
       .then(res => res.json())
       .then(res => {
