@@ -102,6 +102,12 @@
    background-color: rgba(244, 67, 54, 0.55);
    color: white;
  }
+ .btnError {
+   background-color: #F44336;
+ }
+ .btnSuccess {
+   background-color: #4CAF50;
+ }
  .refreshBtn:hover {
    background-color: rgba(3, 169, 244, 0.55);
    color: white;

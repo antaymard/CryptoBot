@@ -81,7 +81,9 @@ class TradingDiv extends Component {
     input : {
       price : 0,
       btcAmount: 0
-    }
+    },
+    btnInfo: this.props.operation + ' ' + this.props.currency,
+    btnStatus : 0 // 0 = normal, 1 = disabled, 2 = error & disabled, 3 = success & disabled
   }
 
   componentDidMount() {
@@ -120,6 +122,8 @@ class TradingDiv extends Component {
   handleClickTrade = () => {
     console.log(this.props.operation);
     console.log(this.state.input);
+    this.setState({ btnInfo : "Passing Order..."});
+    this.setState({ btnStatus : 1 });
     if ( !isNaN(this.state.input.price) && !isNaN(this.state.input.amount)) {
       fetch("/api/trade",
         {
@@ -137,8 +141,14 @@ class TradingDiv extends Component {
             })
         })
         .then(res =>  res.json())
-        .then(res => alert(res.message))
-        .catch(res => console.log(res.json()) )
+        .then(res => {
+          this.setState({ btnInfo : res.message });
+          console.log(res.message);
+        })
+        .catch(res => {
+          this.setState({ btnInfo : res.json() });
+          console.log(res.json());
+        })
 
     } else {
       alert('Please enter valid number values');
@@ -170,7 +180,7 @@ class TradingDiv extends Component {
         <Draggable handle=".orderDivHeader">
         <div className="popUpBtnDiv backDropped-dark" style={{left:"0px"}}>
           <div className='orderDivHeader'>
-            <p>{this.props.operation === 'BUY' ? 'Acheter' : 'Vendre'} {this.props.currency}</p>
+            <p>{this.state.btnInfo}</p>
             <div>
               {this.props.children}
             </div>
@@ -213,9 +223,10 @@ class TradingDiv extends Component {
             </div>
           </div>
           <div style={{marginTop:'10px', display:'flex', flexDirection:'row', justifyContent:'space-between'}}>
-            <button className={'btn backDropped-light ' + (this.props.operation === "BUY" ? "buyBtn" : "sellBtn")}
-             style={{width:"100%"}} onClick={this.handleClickTrade}>
-              {this.props.operation === 'BUY' ? 'Acheter ' + this.props.currency : 'Vendre ' + this.props.currency }</button>
+            <button className={'btn backDropped-light ' + (this.props.operation === "BUY" ? "buyBtn " : "sellBtn ") + (this.state.btnStatus == 2 ? 'btnError ' : null) + (this.state.btnStatus == 3 ? 'btnSuccess' : null)}
+             style={{width:"100%"}} onClick={this.handleClickTrade} disabled={this.state.btnStatus !== 0 ? false : true}>
+              {this.state.btnInfo}
+            </button>
           </div>
         </div>
         </Draggable>

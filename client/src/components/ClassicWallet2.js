@@ -43,9 +43,9 @@ class WalletLineChart extends Component {
     return (
       <ResponsiveContainer width="100%" height={160}>
         <LineChart  data={this.props.walletArchive}>
-        <Line type="monotone" dataKey="totalBTCEq" dot={false} stroke="#2196F3" strokeWidth={2}/>
+          <Line type="monotone" dataKey="totalBTCEq" dot={false} stroke="#2196F3" strokeWidth={2}/>
           <XAxis dataKey="date" hide={true}/>
-          <YAxis domain={['dataMin', 'dataMax']} hide={true} />
+          <YAxis domain={['dataMin', 'dataMax']} hide={true}/>
           <ReferenceLine y={_initialValue} label="" stroke="red" strokeDasharray="3 3" />
           <ReferenceLine y={_finalValue} label="" stroke="green" strokeDasharray="3 3" label={(((_finalValue-_initialValue)/_initialValue)*100).toFixed(2)+'%'}/>
           <CartesianGrid strokeDasharray="3 3" />
@@ -132,7 +132,10 @@ class ClassicWallet extends Component {
     this.setState({walletArchive : false})
     fetch('/api/getWalletArchive/' + this.state.selectedDateForCharts)
       .then(res => res.json())
-      .then(res => this.setState({ walletArchive : res}))
+      .then(res => {
+        this.setState({ walletArchive : res});
+        console.log(this.state.walletArchive);
+      })
   }
 
   renderDateChartButtons = () => {
