@@ -18,9 +18,9 @@ class OrderDiv extends Component {
         <br/>
           {_data.TimeStamp.slice(11,19)}
         </td>
-        <td>{_data.ImmediateOrCancel ? "IoC" : "?"}</td>
+        <td>{_data.IsConditional ? "1" : "0"}</td>
         <td>{_data.OrderType.slice(6)}</td>
-        <td>{_data.PricePerUnit}</td>
+        <td><b>{_data.PricePerUnit}</b></td>
         <td>{_data.Quantity}</td>
         <td>{_data.QuantityRemaining}</td>
         <td>{_data.Commission}</td>
@@ -36,7 +36,7 @@ class OrderDiv extends Component {
     if (this.props.data) {
       return(
         <Draggable handle=".orderDivHeader">
-        <div className="popUpBtnDiv backDropped-dark" style={{right:"0px", width:'900px'}}>
+        <div className="popUpBtnDiv backDropped-dark" style={{right:"0px", bottom:'40px', width:'auto'}}>
           <div className='orderDivHeader'>
             <p>{this.props.data.length} Transaction(s) {this.props.data[0].Exchange}</p>
             <div>
@@ -48,7 +48,7 @@ class OrderDiv extends Component {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>IoC</th>
+                  <th>Cond</th>
                   <th>Type</th>
                   <th>Cours Eff</th>
                   <th>Qu échangée</th>
@@ -75,6 +75,7 @@ class OrderDiv extends Component {
 
 class TradingDiv extends Component {
   state = {
+    isLimitOrder : true,
     btcBalance : null,
     currBalance : null,
     currInfo : {},
@@ -137,16 +138,21 @@ class TradingDiv extends Component {
               operation: this.props.operation,
               currency : this.props.currency,
               price : Number(this.state.input.price),
-              amount: Number(this.state.input.amount)
+              amount: Number(this.state.input.amount),
+              isLimitOrder : this.state.isLimitOrder
             })
         })
         .then(res =>  res.json())
         .then(res => {
           this.setState({ btnInfo : res.message });
           console.log(res.message);
+          if (res.message == 'Success !') {
+            this.setState({ btnStatus : 3 });
+          }
         })
         .catch(res => {
           this.setState({ btnInfo : res.json() });
+          this.setState({ btnStatus : 2 });
           console.log(res.json());
         })
 
@@ -173,12 +179,16 @@ class TradingDiv extends Component {
       }
     })
   }
+  handleCheckboxChange = () => {
+    console.log('checked !');
+    this.setState({isLimitOrder : !this.state.isLimitOrder})
+  }
 
   render () {
     if (this.props.currency !== 'BTC') {
       return (
         <Draggable handle=".orderDivHeader">
-        <div className="popUpBtnDiv backDropped-dark" style={{left:"0px"}}>
+        <div className="popUpBtnDiv backDropped-dark" style={{bottom:'40px', left:"0px"}}>
           <div className='orderDivHeader'>
             <p>{this.state.btnInfo}</p>
             <div>
@@ -221,10 +231,15 @@ class TradingDiv extends Component {
                 </div>
               </div>
             </div>
+            <div className="form-check">
+              <input type="checkbox" className="form-check-input" onChange={this.handleCheckboxChange} checked={this.state.isLimitOrder}/>
+              <label className="form-check-label">Limit Order</label>
+            </div>
           </div>
           <div style={{marginTop:'10px', display:'flex', flexDirection:'row', justifyContent:'space-between'}}>
-            <button className={'btn backDropped-light ' + (this.props.operation === "BUY" ? "buyBtn " : "sellBtn ") + (this.state.btnStatus == 2 ? 'btnError ' : null) + (this.state.btnStatus == 3 ? 'btnSuccess' : null)}
-             style={{width:"100%"}} onClick={this.handleClickTrade} disabled={this.state.btnStatus !== 0 ? false : true}>
+            <button className={'btn backDropped-light ' + (this.props.operation === "BUY" ? "buyBtn " : "sellBtn ")
+              + (this.state.btnStatus == 2 ? 'btnError ' : null) + (this.state.btnStatus == 3 ? 'btnSuccess ' : null)}
+             style={{width:"100%"}} onClick={this.handleClickTrade} disabled={this.state.btnStatus == 1 ? true : false}>
               {this.state.btnInfo}
             </button>
           </div>
@@ -263,8 +278,6 @@ class Card extends Component {
     }
   }
 
-
-
   // Send EqBTC to the parent
   sendEqBtcToParent = () => {
     if (this.props.sendEqBtcToParent) {
@@ -274,7 +287,6 @@ class Card extends Component {
       this.setState({sendToParentIsOver : true})
     }
   }
-
 
   getCurrencyCours = () => {
     fetch('/api/getCurrencyCours/' + this.props.currency)
@@ -314,8 +326,9 @@ class Card extends Component {
       var _lastBuyOrder = this.state.orderHistory.filter(_order => _order.OrderType === 'LIMIT_BUY');
       if (_lastBuyOrder[0]) {
         return (
-        <p style={{color:"white", marginRight:'15px'}}>
-        Dernier achat à {_lastBuyOrder[0].PricePerUnit} BTC ({(((this.state.cours-_lastBuyOrder[0].PricePerUnit)/this.state.cours)*100).toFixed(2)} %)</p>
+          <p style={{color:"white", marginRight:'15px'}}>
+            Dernier achat à {_lastBuyOrder[0].PricePerUnit} BTC ({(((this.state.cours-_lastBuyOrder[0].PricePerUnit)/this.state.cours)*100).toFixed(2)} %)
+          </p>
       )} else {
         return (<p style={{marginRight:'15px'}}>No recent buy order</p>)
       }
@@ -360,9 +373,11 @@ class Card extends Component {
           </p>
           <div className="cardSection">
             Balance : {this.props.balance + ' ' + this.props.currency} <br/>
-            Cours : {this.state.cours ? this.state.cours : 'Getting Cours...'} <br/>
-            <br/>
             Eq BTC : {Math.round(this.state.eqBtc*100000000)/100000000} BTC
+            <br/>
+            <br/>
+            <b>Cours : {this.state.cours ? this.state.cours : 'Getting Cours...'}</b>
+            <br/>
           </div>
         </div>
 

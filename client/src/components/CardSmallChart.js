@@ -34,6 +34,10 @@ class CardSmallChart extends Component {
     this.setState({ selectedDateForCharts : option })
   }
 
+  correctDate = (date) => {
+
+  }
+
   render() {
     var _initialValue, _finalValue;
     if (!this.state.res) {
@@ -46,6 +50,7 @@ class CardSmallChart extends Component {
       if (this.state.res[0]) {
         _initialValue = this.state.res[0].C;
         _finalValue = this.state.res[this.state.res.length-1].C;
+        // Corrige la date en ajoutant une heure
       } else if (!this.state.res[0]) {
         _initialValue = null;
         _finalValue = null;
@@ -63,7 +68,7 @@ class CardSmallChart extends Component {
               <CartesianGrid strokeDasharray="3 3" />
               < Tooltip />
             </LineChart>
-          </ ResponsiveContainer>
+          </ResponsiveContainer>
 
         </div>
       );

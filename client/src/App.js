@@ -11,7 +11,8 @@ import WalletIcon from 'react-icons/lib/md/account-balance-wallet.js'
 
 class App extends Component {
   state = {
-    displayed : "ClassicWallet2"
+    displayed : "ClassicWallet2",
+    displayOrderDiv : false,
   }
 
   componentDidMount() {
@@ -32,18 +33,19 @@ class App extends Component {
     }
 
     return (
-      <div className="mainDiv">
-        < TopMainBar >
-          <button className="labelDiv" name="ClassicWallet2" onClick={this.handleClick}>
-            <p className="labelIcon"><WalletIcon/></p>
-            <p className="labelName">Wallet 2</p>
+      <div>
+        <TopMainBar>
+          <button className="btn labelBtn" name="ClassicWallet2" onClick={this.handleClick}>
+            Classic Wallet
           </button>
-          <button className="labelDiv" name="PumpDisplay" onClick={this.handleClick}>
-            <p className="labelIcon"><WalletIcon/></p>
-            <p className="labelName">Wallet 2</p>
+          <button className="btn labelBtn" name="PumpDisplay" onClick={this.handleClick}>
+            Pump Algorithm
           </button>
-        </ TopMainBar >
-        {_displayed}
+        </TopMainBar>
+        <div className="mainDiv">
+          {_displayed}
+        </div>
+
       </div>
     );
   }

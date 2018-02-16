@@ -1,0 +1,30 @@
+.notifPopupMainDiv {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 300px;
+  z-index: 30;
+  padding: 10px;
+  backdrop-filter : blur(5px);
+}
+
+.notifPopupTitleDiv {
+  font-weight: 800;
+  margin-bottom: 5px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.important {
+  border: 1px solid #03A9F4;
+}
+.warning {
+  border: 1px solid #F44336;
+  background-color: rgba(244, 67, 54, 0.28);
+}
+.success {
+  border: 1px solid #4CAF50;
+  background-color: rgba(76, 175, 80, 0.28);
+}

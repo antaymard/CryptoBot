@@ -29,9 +29,6 @@ colors.setTheme({
 
 // GLOBAL VALUES ===============================================================
 var state = {
-  // bitcoin : {
-  //   price_usd : null,
-  // }
 }
 
 /*
@@ -52,25 +49,107 @@ WALLET DATA
 // TODO: Comparer la moyenne à la dernière valeurs
 // TODO: Placer la monnaie dans le wallet 'forte croissance'
 
+function getAllMarketsName () {
+  var _allCurrencyArray = [];
+  return new Promise((resolve, reject) => {
+    request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
+      if (err) {
+        console.log('Pb getting all markets name'.error);
+        return reject(err);
+      }
+      // Parse le resultat en JSON
+      body = JSON.parse(body);
+      var _r = body.result;
 
+      // Créer un array avec seulement les XXX de devises.
+      for (var _i=0; _i < 10; _i++) {
+        _allCurrencyArray.push(_r[_i].MarketCurrency);
+      }
+
+      console.log(_allCurrencyArray);
+      console.log(_allCurrencyArray.length);
+      return resolve(_allCurrencyArray);
+    })
+  })
+}
+// getAllMarketsName()
+//   .then(_r => {
+//     for (var _i in _r) {
+//       getCurrencyCandles(_r[_i], '1x5min')
+//         .then(_s => {
+//           console.log(_s);
+//         })
+//     }
+//   })
+
+  [{
+    O: 7.9e-7,
+    H: 7.9e-7,
+    L: 7.9e-7,
+    C: 7.9e-7,
+    V: 385441.62016178,
+    T: '2018-02-15T09:24:00',
+    BV: 0.30449881
+  },
+  {
+    O: 7.9e-7,
+    H: 7.9e-7,
+    L: 7.8e-7,
+    C: 7.9e-7,
+    V: 584037.03684999,
+    T: '2018-02-15T09:25:00',
+    BV: 0.46069974
+  }]
+
+// var _bouga = 'c2dcb79d-57ea-4b17-895c-a6f8663390a9';
+// bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/account/getorder?uuid=' + _bouga, function( data, err ) {
+//   if (err) {
+//     console.log('TEST'.error);
+//     return console.log(err.message);
+//   }
+//   console.log('TEST'.success);
+//   console.log( data );
+// }, true );
+
+
+//==============================================================================
+//---------------------- MY API SHIT GOES HERE ---------------------------------
+
+// Cancel an open order
+app.get('/api/cancelOpenOrder/:orderId', (req, res) => {
+  console.log('Canceling trigered');
+  var orderId = req.params.orderId;
+  cancelOrder(orderId)
+    .then(e => res.json(e))
+    .catch(err => res.json(err))
+});
+
+// Récupère tous les ordres ouverts
+app.get('/api/getOpenOrders', (req, res) => {
+ getOpenOrders()
+   .then(r => res.json(r))
+   .catch(err => res.json(err))
+});
+
+// Envoyer ordres à BITTREX
 app.post('/api/trade', (req, res) => {
   var _r = req.body;
   console.log(_r);
 
   console.log('launching passTradeOrder'.info);
 
-  passTradeOrder(_r.operation, 'BTC', _r.currency, _r.amount, _r.price)
+  passTradeOrder(_r.operation, 'BTC', _r.currency, _r.amount, _r.price, _r.isLimitOrder)
     .then(_d => {
-      console.log('then answer : '.success);
+      console.log('Order passed : '.success);
       console.log(_d);
-      checkIfTradeOrderSucceed(_r.currency, _d.result.OrderId)
+      checkIfTradeOrderSucceed(_r.currency, _d.result.OrderId, _r.isLimitOrder)
         .then(response => {
-          console.log('testing'.important);
+          console.log('Checked order response'.success);
           console.log(response);
           res.json(response);
         })
         .catch(err => {
-          console.log('catched error');
+          console.log('Order passing catched error');
           console.log(err);
           res.json(err);
         })
@@ -80,135 +159,6 @@ app.post('/api/trade', (req, res) => {
       res.json(err);
     })
 })
-
-// _qu est la quantité en BTC
-function trade (_operation, _refCurr, _curr, _qu, _rate) {
-    // console.log('launching passSellOrder'.important);
-    //
-    // passTradeOrder(_operation, _refCurr, _curr, _qu, _rate)
-    //   .then(_d => {
-    //     console.log('then answer : '.success);
-    //     console.log(_d);
-    //   }).catch(err => {
-    //     console.log('Error passing trading order'.error);
-    //     console.log('%s'.error, err.message);
-    //   })
-}
-
-// function checkIfTradeOrderSucceed (_uuid) {
-//   console.log('checking uuid for %s'.important, _uuid);
-//   return new Promise((resolve, reject) => {
-//     var _url = 'https://bittrex.com/Api/v2.0/auth/orders/GetOrder&uuid=' + _uuid;
-//     bittrex.sendCustomRequest( _url, function( data, err ) {
-//       if (err) {
-//         reject(err);
-//         console.log('error checking UUID'.error);
-//         return console.error(err);
-//       }
-//       console.log('UUID data is'.success);
-//       console.log(data);
-//     }, true);
-//   })
-// }
-
-function checkIfTradeOrderSucceed (_curr, _uuid) {
-  console.log('checking uuid for %s'.important, _uuid);
-  return new Promise((resolve, reject) => {
-    bittrex.getorderhistory({market:'BTC-' + _curr}, function( data, err ) {
-      if (err) {
-        reject(err);
-        return console.error("Error fetching uuid for %s :".error, _currency);
-      }
-      if (data && data.result) {
-        if (data.result[0].OrderUuid == _uuid) {
-          console.log('This is a match !!'.success);
-          resolve({ message : 'success' })
-        } else {
-          console.log('no match'.error);
-          reject({ message : 'order was not passed' })
-        }
-      } else {
-        console.log('no match'.error);
-        reject({ message : 'order was not passed' })
-      }
-    });
-  })
-}
-
-
-// Promise passe ordre d'achat à l'API Bittrex /!\ _qu
-function passTradeOrder (_operation, _refCurr, _curr, _qu, _rate) {
-  return new Promise((resolve, reject) => {
-    if (_curr == 'BTC') {
-      console.log("Can't buy BTC".error);
-      reject({message : "Can't trade BTC !" });
-    }
-    if (_operation == 'BUY') {
-      console.log("sending Buy Order to BITTREX".important);
-      // ici _qu est la quantité en BTC (monnaie de ref)
-      // Conversion en eth
-      var _currEq = Number((_qu*0.9975/_rate).toFixed(8));
-      // console.log("operation : " + _operation);
-      // console.log('_refCurr: ' + _refCurr);
-      // console.log('_curr : ' + _curr);
-      // console.log('_qu : ' + _qu);
-      // console.log('_rate ' + _rate);
-      // console.log("_currEq = ".important, _currEq);
-      bittrex.tradebuy({
-        MarketName: _refCurr + '-' + _curr,
-        OrderType: 'LIMIT',
-        Quantity: _currEq,
-        Rate: _rate,
-        TimeInEffect: 'IMMEDIATE_OR_CANCEL', // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'
-        ConditionType: 'NONE', // supported options are 'NONE', 'GREATER_THAN', 'LESS_THAN'
-        Target: 0, // used in conjunction with ConditionType
-      }, function( data, err ) {
-        if (err) {
-          reject(err);
-          console.log('Error buying : %s'.error, err.message);
-          return console.log(err);
-        } else {
-          console.log('Buy Traded success'.success);
-          // console.log( data );
-          resolve(data);
-        }
-      });
-    } else if (_operation == 'SELL') {
-      console.log("sending Sell Order".important);
-      // ici _qu est la quantité en monnaie tradée (ex ETH)
-      bittrex.tradesell({
-        MarketName: _refCurr + '-' + _curr,
-        OrderType: 'LIMIT',
-        Quantity: _qu,
-        Rate: _rate,
-        TimeInEffect: 'IMMEDIATE_OR_CANCEL', // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'
-        ConditionType: 'NONE', // supported options are 'NONE', 'GREATER_THAN', 'LESS_THAN'
-        Target: 0, // used in conjunction with ConditionType
-      }, function( data, err ) {
-        if (err) {
-          reject(err);
-          console.log('Error selling : %s'.error, err.message);
-          return console.log(err);
-        } else {
-          console.log('Sell Traded success'.success);
-          // console.log( data );
-          resolve(data);
-        }
-      });
-    }
-  })
-}
-
-function getAllMarketsName () {
-  request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
-  body = JSON.parse(body);
-  var _r = body.result;
-  console.log(_r.length);
-  })
-}
-
-//==============================================================================
-//---------------------- MY API SHIT GOES HERE ---------------------------------
 
 // Récupère les datas à afficher avant de trader une monnaie = Bid Ask Balance
 app.get('/api/getPreTransactionInfo/:currency', (req, res) => {
@@ -291,10 +241,12 @@ app.get('/api/getResearchedCurrencyInfo/:currency', (req, res) => {
 
 // V2
 
+// Récupère toutes les monnaies dans le portefeuille
 app.get('/api/getAllBalances', (req, res) => {
   getAllBalances().then(response => res.json(response));
 })
 
+// Récupère le cours d'une currency
 app.get('/api/getCurrencyCours/:currency', (req, res) => {
   var _curr = req.params.currency;
   getCurrencyCours(_curr)
@@ -303,6 +255,162 @@ app.get('/api/getCurrencyCours/:currency', (req, res) => {
 
 //==============================================================================
 //--------------------------- MY PROMISES -------------------------------------
+
+// PROMISE qui vérifie l'existence du dernier ordre passé et renvoie succès ou pas
+function checkIfTradeOrderSucceed (_curr, _uuid, _isLimiteOrder) {
+  console.log('checking uuid for %s'.important, _uuid);
+  return new Promise((resolve, reject) => {
+    bittrex.getorderhistory({market:'BTC-' + _curr}, function( data, err ) {
+      if (err) {
+        reject({ message : err });
+        return console.error("Error fetching uuid for %s :".error, _currency);
+      }
+      if (data && data.result && data.result.length > 0) {
+        if (data.result[0].OrderUuid == _uuid) {
+          console.log('This is a match !!'.success);
+          resolve({ message : 'Success !' })
+        } else {
+          if (_isLimiteOrder) {
+            console.log('no match but limit :)'.error);
+            reject({ message : 'Check Open Orders' })
+          } else {
+            console.log('no match'.error);
+            reject({ message : 'Order has canceled' })
+          }
+        }
+      } else {
+        console.log('no match'.error);
+        reject({ message : 'Order has canceled ???' })
+      }
+    });
+  })
+}
+
+// Affiche les ordres en cours/attente
+function getOpenOrders(_refCurr, _curr) {
+  // _market = 'BTC-LTC'
+  return new Promise((resolve, reject) => {
+    console.log('Get open orders has been launched'.important)
+    if (_refCurr && _curr) {
+      var _market = '?market=' + _refCurr + _curr;
+    } else {
+      _market = '';
+    }
+    bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/market/getopenorders'+ _market, function( data, err ) {
+      if (err) {
+        console.log('err recovering open order'.error);
+        console.log(err.message);
+        return reject(err.message)
+      }
+      console.log('Successfully recovering open orders'.success);
+      //console.log( data.result );
+      return resolve(data.result);
+    }, true );
+  })
+}
+
+// Annule un ordre passé
+function cancelOrder(_orderId) {
+  return new Promise((resolve, reject) => {
+    bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/market/cancel?uuid=' + _orderId, function( data, err ) {
+      if (err) {
+        console.log('err canceling order :'.error);
+        console.log(err.message);
+        return reject(err.message)
+      }
+      console.log('Successfully cancel order'.success);
+      console.log( data );
+      return resolve(data);
+    }, true );
+  })
+}
+
+
+
+// PROMISE passe ordre d'achat à l'API Bittrex /!\ _qu
+function passTradeOrder (_operation, _refCurr, _curr, _qu, _rate, _isLimiteOrder) {
+  return new Promise((resolve, reject) => {
+    if (_curr == 'BTC') {
+      console.log("Can't buy BTC".error);
+      reject({message : "Can't trade BTC !" });
+    }
+    if (_operation == 'BUY') {
+      console.log("sending BUY Order to BITTREX".important);
+      // ici _qu est la quantité en BTC (monnaie de ref)
+      // Conversion en eth
+      var _currEq = Number((_qu*0.9975/_rate).toFixed(8));
+      //console.log("operation : %s".info, _operation);
+      // console.log('_refCurr: ' + _refCurr);
+      // console.log('_curr : ' + _curr);
+      // console.log('_qu : ' + _qu);
+      // console.log('_rate ' + _rate);
+      // console.log("_currEq = ".important, _currEq);
+      if (_isLimiteOrder) {
+        console.log('LESS_THAN enabled'.important);
+        var _conditionType = 'LESS_THAN';
+        var _timeInEffect = 'GOOD_TIL_CANCELLED';
+      } else if (!_isLimiteOrder) {
+        console.log('LESS_THAN disabled'.important);
+        var _conditionType = 'NONE';
+        var _timeInEffect = 'IMMEDIATE_OR_CANCEL';
+      }
+
+      bittrex.tradebuy({
+        MarketName: _refCurr + '-' + _curr,
+        OrderType: 'LIMIT',
+        Quantity: _currEq,
+        Rate: _rate,
+        TimeInEffect: _timeInEffect, // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'
+        ConditionType: _conditionType, // supported options are 'NONE', 'GREATER_THAN', 'LESS_THAN'
+        Target: 0, // used in conjunction with ConditionType
+      }, function( data, err ) {
+        if (err) {
+          reject(err);
+          console.log('Error buying : %s'.error, err.message);
+          return console.log(err);
+        } else {
+          console.log('Buy Traded success'.success);
+          console.log( data );
+          resolve(data);
+        }
+      });
+    } else if (_operation == 'SELL') {
+      console.log("sending SELL Order".important);
+      // ici _qu est la quantité en monnaie tradée (ex ETH)
+
+      if (_isLimiteOrder) {
+        console.log('GREATER_THAN enabled'.important);
+        var _conditionType = 'GREATER_THAN';
+        var _timeInEffect = 'GOOD_TIL_CANCELLED';
+
+      } else if (!_isLimiteOrder) {
+        console.log('GREATER disabled'.important);
+        var _conditionType = 'NONE';
+        var _timeInEffect = 'IMMEDIATE_OR_CANCEL';
+      }
+
+      bittrex.tradesell({
+        MarketName: _refCurr + '-' + _curr,
+        OrderType: 'LIMIT',
+        Quantity: _qu,
+        Rate: _rate,
+        TimeInEffect: _timeInEffect, // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'
+        ConditionType: _conditionType, // supported options are 'NONE', 'GREATER_THAN', 'LESS_THAN'
+        Target: 0, // used in conjunction with ConditionType
+      }, function( data, err ) {
+        if (err) {
+          reject(err);
+          console.log('Error selling : %s'.error, err.message);
+          return console.log(err);
+        } else {
+          console.log('Sell Traded success'.success);
+          console.log( data );
+          resolve(data);
+        }
+      });
+    }
+  })
+}
 
 // PROMISE Récupère le cours de la monnaie indiquée (ETH et BTC ok)
 function getCurrencyCours (_curr) {
@@ -350,16 +458,19 @@ function getCurrencyBalance(_curr) {
 }
 
 // PROMISE de récupération des candles pour une monnaie et à partir d'une "date" donnée
+// Custom Date = en heures
 function getCurrencyCandles(_curr, _selectedDate) {
   return new Promise((resolve, reject) => {
     console.log("Getting Candle for %s".info, _curr);
+
     var _timeSelected = _selectedDate;
 
     var _now = new Date().getTime()/1000; // Définit maintenant en timestamp
 
-    var _timeArray = ['3h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
+    var _timeArray = ['3h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m', '1x5min' ];
     var _timeIndex = _timeArray.indexOf(_timeSelected); //Dis à quelle position est le temps demandé
-    var _delta=[
+
+    var _delta = [
       3,
       6,
       12,
@@ -368,10 +479,11 @@ function getCurrencyCandles(_curr, _selectedDate) {
       168,
       720,
       2160,
-      4320
+      4320,
+      2
     ]; // Définit sur cb d'heures je veux les données
 
-    var _density=[
+    var _density = [
       "oneMin",
       "fiveMin",
       "fiveMin",
@@ -380,42 +492,42 @@ function getCurrencyCandles(_curr, _selectedDate) {
       "hour",
       "day",
       "day",
-      "day"
+      "day",
+      'fiveMin'
     ]; // Définit l'intervalle (fréquence) des candles demandées
 
-    _now = _now-(_delta[_timeIndex]*60*60); // _now = seuil temporel après lequel garder les valeurs
+    _now = _now-(_delta[_timeIndex]*60*60+3600); // _now = seuil temporel après lequel garder les valeurs
 
-    if (!_tickInterval) {
-      var _tickInterval = _density[_timeIndex];
-    }
+    var _tickInterval = _density[_timeIndex];
     var _market;
     if (_curr == 'BTC') {
       _market = 'USDT-' + _curr;
     } else {
       _market = 'BTC-' + _curr;
     }
-      request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + _market
-      +'&tickInterval=' + _tickInterval + '&_=1500915289433',
-      function (err, response, body) {
-        if (err) {
-          reject(err);
-          return  console.error("ERR recovering candles ", err);
+
+    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + _market
+    +'&tickInterval=' + _tickInterval + '&_=1500915289433',
+    function (err, response, body) {
+      if (err) {
+        reject(err);
+        return  console.error("ERR recovering candles ", err);
+      }
+      if (body) {
+        body = JSON.parse(body); // transforme la réponse en JSON
+        if (body.result) {
+          console.log('Candles received for %s'.info, _curr);
+          var _candleArray = body.result;
+          // Ne garde que les données dans la plage voulue (sur les _delta derniers jours)
+          var _candleArray = _candleArray.filter(data => new Date(data.T).getTime()/1000 >= _now);
+          resolve(_candleArray);
+          // res.json(_candleArray);
+        } else {
+          console.log('No Candles for %s'.important, _curr);
+          resolve([]);
         }
-        if (body) {
-          body = JSON.parse(body); // transforme la réponse en JSON
-          if (body.result) {
-            console.log('Candles received for %s'.info, _curr);
-            var _candleArray = body.result;
-            // Ne garde que les données dans la plage voulue (sur les _delta derniers jours)
-            var _candleArray = _candleArray.filter(data => new Date(data.T).getTime()/1000 >= _now);
-            resolve(_candleArray);
-            // res.json(_candleArray);
-          } else {
-            console.log('No Candles for %s'.important, _curr);
-            resolve([]);
-          }
-        }
-      })//-----
+      }
+    })//-----
 
   })
 }
@@ -547,7 +659,6 @@ var localState = {
 
 
 // Archivage du portefeuille
-// archiveCurrentWalletPerf();
 function archiveCurrentWalletPerf() {
   var _promises = [ getBalancesNCours(), getCurrencyCours('BTC')];
   Promise.all(_promises)

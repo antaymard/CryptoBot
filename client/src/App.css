@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css?family=Work+Sans:200');
+@import url('https://fonts.googleapis.com/css?family=Work+Sans:300');
 
 * {
   font-family: 'Work Sans', sans-serif;
@@ -8,6 +8,7 @@ p {
   margin : 0;
 }
 .mainDiv {
+  padding-top: 50px;
   display: flex;
   flex-direction: row;
   /* background-image: url('https://wallpaperclicker.com/storage/wallpaper/High-Definition-Ultra-HD-Wallpaper-96262544.jpg');*/

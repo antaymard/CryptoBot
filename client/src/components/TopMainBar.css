@@ -1,32 +1,47 @@
-.leftMainBar {
+.topMainBar {
   background-color: #607D8B;
   position: fixed;
   top: 0;
   left: 0;
-  bottom: 0;
-  width: 50px;
+  right: 0;
+  height: 50px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  z-index: 50;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
 }
 
-.labelDiv {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: rgba(255,255,255,0.2);
-  width: 100%;
-  padding: 5px 3px;
-  margin-bottom: 3px;
-}
-.labelIcon {
-  color: white;
+.orderCancelBtn {
+  color: #E57373;
   font-size: 20px;
-  margin: 0;
 }
-.labelName {
+.orderCancelBtn:hover {
   color: white;
-  font-size: 13px;
-  margin: 0;
-  margin-top: 2px;
+  background-color: #E57373;
+}
+
+.btnDiv {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.labelBtn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255,255,255,0.2);
+  width: 200px;
+  padding: 5px 3px;
+  margin: 0 12px 0 0;
+  color: rgba(255,255,255,0.5);
+}
+.labelBtn:hover {
+  background-color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.8);
 }
