@@ -179,12 +179,28 @@ app.get('/api/getPreTransactionInfo/:currency', (req, res) => {
 
 // Récupère l'historique des mes transactions (BUY et SELL) pour une monnaie donnée
 app.get('/api/getOrderHistory/:currency', (req, res) => {
+  console.log('getOrderHistory launched'.success)
+
   var _currency = req.params.currency;
-  bittrex.getorderhistory({market:'BTC-' + _currency}, function( data, err ) {
+
+  if (_currency == '_all') {
+    var _currency = 'allCurrency';
+    var option = {};
+  } else {
+    var option = {
+      market : 'BTC-' + _currency
+    }
+  }
+  bittrex.getorderhistory(option, function( data, err ) {
     if (err) {
       return console.error("Error fetching OrderHistory for %s :".error, _currency + JSON.stringify(err.message, null, 2));
     }
-    res.json(data.result);
+    if (data.result.length > 15) {
+      console.log(data.result.slice(0,15));
+      return res.json( data.result.slice(0,15) );
+    } else {
+      res.json(data.result);
+    }
   });
 });
 
@@ -324,8 +340,6 @@ function cancelOrder(_orderId) {
     }, true );
   })
 }
-
-
 
 // PROMISE passe ordre d'achat à l'API Bittrex /!\ _qu
 function passTradeOrder (_operation, _refCurr, _curr, _qu, _rate, _isLimiteOrder) {
