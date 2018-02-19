@@ -39,6 +39,17 @@ WALLET DATA
   date ??????
 */
 
+// var _bouga = 'c2dcb79d-57ea-4b17-895c-a6f8663390a9';
+// bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/account/getorder?uuid=' + _bouga, function( data, err ) {
+//   if (err) {
+//     console.log('TEST'.error);
+//     return console.log(err.message);
+//   }
+//   console.log('TEST'.success);
+//   console.log( data );
+// }, true );
+
+
 
 // TESTS =======================================================================
 
@@ -49,8 +60,9 @@ WALLET DATA
 // TODO: Comparer la moyenne à la dernière valeurs
 // TODO: Placer la monnaie dans le wallet 'forte croissance'
 
+// INPUT ### Récupère toutes les monnaies
 function getAllMarketsName () {
-  var _allCurrencyArray = [];
+  var allCurrencyArray = [];
   return new Promise((resolve, reject) => {
     request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
       if (err) {
@@ -62,16 +74,36 @@ function getAllMarketsName () {
       var _r = body.result;
 
       // Créer un array avec seulement les XXX de devises.
-      for (var _i=0; _i < 10; _i++) {
-        _allCurrencyArray.push(_r[_i].MarketCurrency);
+      for (var _i in _r) {
+        allCurrencyArray.push(_r[_i].BaseCurrency + '-' + _r[_i].MarketCurrency);
       }
-
-      console.log(_allCurrencyArray);
-      console.log(_allCurrencyArray.length);
-      return resolve(_allCurrencyArray);
+      console.log('untreated array is %s long'.important, allCurrencyArray.length);
+      console.log(allCurrencyArray[0]);
+      return resolve(allCurrencyArray);
     })
   })
 }
+// OUTPUT ### [ 'BTC-LTC',...]
+
+// INPUT ### array de > 260 marchés
+function splitArray (_array, _size) {
+  console.log('splitArray called');
+  var allCurrencySubArray = [];
+  for (var _i=0; _i < (_array.length/_size); _i++) {
+    allCurrencySubArray.push(
+      _array.slice(_i*_size, (_size)*(_i+1)-1)
+    )
+  }
+  console.log('treated array is %s long'.important, allCurrencySubArray.length);
+  console.log(allCurrencySubArray);
+}
+
+//analyseIfPumped ('BTC', 'ETH', 'fiveMin', 3, 2);
+getAllMarketsName()
+  .then(_r => {
+    splitArray(_r, 10);
+  })
+
 // getAllMarketsName()
 //   .then(_r => {
 //     for (var _i in _r) {
@@ -81,6 +113,67 @@ function getAllMarketsName () {
 //         })
 //     }
 //   })
+
+
+
+function analyseIfPumped (_refCurr, _curr, _tickInterval, _nbPeriods, _threshold) {
+  return new Promise((resolve, reject) => {
+    // 1 - GET CANDLES
+    var _market = _refCurr + '-' + _curr;
+    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + _market
+    +'&tickInterval=' + _tickInterval + '&_=1500915289433',
+    function (err, response, body) {
+      if (err) {
+        console.log("Fail recovering one candle".error);
+        console.log(err);
+        reject({
+          success : false,
+          message : "Fail recovering one candle",
+          result : err
+        });
+      }
+      if (body) {
+        var _b = JSON.parse(body);
+        if (_b.result) {
+          console.log('Pump algo candle recieved'.important);
+          var _lasts = _b.result.slice(-_nbPeriods);
+          console.log(_lasts);
+
+          // 2- Calculate mean
+          var _sum = 0;
+          for (var _i = 0 ; _i < _lasts.length-1; _i++) {
+            _sum += _lasts[_i].V;
+          }
+          console.log('Sum is %s', _sum);
+
+          var _mean = _sum / (_lasts.length-1);
+          console.log('Mean is %s', _mean);
+
+          console.log(_lasts[_lasts.length-1].V);
+          console.log(_mean*_threshold);
+          if (_lasts[_lasts.length-1].V > _mean*_threshold) {
+            console.log('POSITIVE'.success);
+            resolve({
+              sucess : true,
+              message : _refCurr + '-' +_curr,
+              result : ''
+            })
+          } else {
+            console.log('NEGATIVE'.error);
+          }
+
+        } else {
+          reject ({
+            success : false,
+            message : 'No body.result',
+            result : null
+          })
+        }
+      }
+    })
+  })
+}
+
 
   [{
     O: 7.9e-7,
@@ -100,16 +193,6 @@ function getAllMarketsName () {
     T: '2018-02-15T09:25:00',
     BV: 0.46069974
   }]
-
-// var _bouga = 'c2dcb79d-57ea-4b17-895c-a6f8663390a9';
-// bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/account/getorder?uuid=' + _bouga, function( data, err ) {
-//   if (err) {
-//     console.log('TEST'.error);
-//     return console.log(err.message);
-//   }
-//   console.log('TEST'.success);
-//   console.log( data );
-// }, true );
 
 
 //==============================================================================
@@ -269,8 +352,46 @@ app.get('/api/getCurrencyCours/:currency', (req, res) => {
     .then(_r => res.json(_r.result));
 })
 
+// Récupère logo et nom de la currency
+app.get('/getLogoAndFullName/:currency', (req, res) => {
+  console.log('getLogoAndFullName launched');
+  getLogoAndFullName(req.params.currency)
+    .then(_r => {
+      console.log(_r);
+      res.json({
+        marketCurrencyLong : _r.MarketCurrencyLong,
+        logoUrl : _r.LogoUrl
+    })
+  })
+})
+
 //==============================================================================
 //--------------------------- MY PROMISES -------------------------------------
+
+// Récupère logo et nom de la currency
+function getLogoAndFullName (_curr) {
+  var _curr = _curr.toUpperCase();
+  console.log(_curr);
+  return new Promise ((resolve, reject) => {
+    request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
+      if (err) {
+        console.log('Pb getting Logo and full name'.error);
+        return reject(err);
+      }
+      body = JSON.parse(body);
+      var _r = body.result;
+      _s = _r.filter(r => r.MarketCurrency == _curr);
+      if (_s.length == 0) {
+        console.log(_s);
+        return console.log('getLogoAndFullName no match'.error);
+      }
+      if (_s.length > 0) {
+        console.log('getLogoAndFullName : %s matches', _s.length);
+        return resolve(_s[0]);
+      }
+    })
+  })
+}
 
 // PROMISE qui vérifie l'existence du dernier ordre passé et renvoie succès ou pas
 function checkIfTradeOrderSucceed (_curr, _uuid, _isLimiteOrder) {
@@ -514,6 +635,8 @@ function getCurrencyCandles(_curr, _selectedDate) {
 
     var _tickInterval = _density[_timeIndex];
     var _market;
+
+    // TODO Ajouter _refCurr dans les params de la fonction ??
     if (_curr == 'BTC') {
       _market = 'USDT-' + _curr;
     } else {
@@ -692,10 +815,10 @@ function archiveCurrentWalletPerf() {
 // Lance l'archivage toutes les heures XX:00 et XX:30
 ontime({
     cycle: [ '00:00', '30:00' ]
-}, function (ot) {
-    archiveCurrentWalletPerf();
-    ot.done()
-    return
+  }, function (ot) {
+      archiveCurrentWalletPerf();
+      ot.done()
+      return
 })
 
 

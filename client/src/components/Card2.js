@@ -262,12 +262,15 @@ class Card extends Component {
     showOrderDiv : false,
     showTradingDiv : false,
     lastBuyOrder : null,
-    operation: null
+    operation: null,
+    marketCurrencyLong : '',
+    logoUrl : ''
   }
 
   componentDidMount() {
     this.getCurrencyCours();
     this.getOrderHistory();
+    this.getLogoAndFullName();
   }
 
   // Gestion du reRender en cliquant sur le btn => cf refreshCard()
@@ -286,6 +289,17 @@ class Card extends Component {
       this.props.sendEqBtcToParent({Currency : _curr, EqBtc : _eq});
       this.setState({sendToParentIsOver : true})
     }
+  }
+
+  getLogoAndFullName = () => {
+    fetch('/getLogoAndFullName/' + this.props.currency)
+      .then(res => res.json())
+      .then(res => {
+        this.setState({
+          marketCurrencyLong : res.marketCurrencyLong,
+          logoUrl : res.logoUrl
+        })
+      })
   }
 
   getCurrencyCours = () => {
@@ -359,13 +373,15 @@ class Card extends Component {
   }
 
   render() {
+    console.log(this.state);
     return (
     <div className="cardBody">
 
       <div className='topCardSection'>
         <div className="cardSection">
           <p className='title'>
-            {this.props.currency}
+            <img  className='currencyLogo' src ={this.state.logoUrl} />
+            {this.state.marketCurrencyLong} ({this.props.currency})
             <a target="_blank" style={{color:"#884d8"}}
                href={'https://bittrex.com/market/marketStandardChart?MarketName=BTC-'+ this.props.currency}>
                   <CandleChartIcon/>
@@ -376,7 +392,7 @@ class Card extends Component {
             Eq BTC : {Math.round(this.state.eqBtc*100000000)/100000000} BTC
             <br/>
             <br/>
-            <b>Cours : {this.state.cours ? this.state.cours : 'Getting Cours...'}</b>
+            <b>Cours : {this.state.cours ? this.state.cours + ' BTC': 'Getting Cours...'}</b>
             <br/>
           </div>
         </div>

@@ -62,6 +62,7 @@
 
 /* ======= Card Detail */
 .title {
+  height: 50px;
   font-size: 20px;
   font-weight: 800;
   display: flex;
@@ -70,6 +71,12 @@
 }
 .title a {
   margin-left: 5px;
+}
+
+.currencyLogo {
+  height: 30px;
+  object-fit: contain;
+  margin-right: 5px;
 }
 
 .balanceDiv {
