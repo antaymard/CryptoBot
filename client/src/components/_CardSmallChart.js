@@ -43,7 +43,7 @@ class CardSmallChart extends Component {
     if (!this.state.res) {
       return(
         <p className="loadingDiv" style={{height:'160px'}}>
-          <LoadingIcon/> Loading chart...
+          <LoadingIcon/>Loading Linechart...
         </p>
       )
     } else if (this.state.res) {
@@ -66,7 +66,7 @@ class CardSmallChart extends Component {
               <ReferenceLine y={_initialValue} label="" stroke="red" strokeDasharray="3 3" />
               <ReferenceLine y={_finalValue} label="" stroke="green" strokeDasharray="3 3" label={(((_finalValue-_initialValue)/_initialValue)*100).toFixed(2)+'%'}/>
               <CartesianGrid strokeDasharray="3 3" />
-              < Tooltip />
+              <Tooltip/>
             </LineChart>
           </ResponsiveContainer>
 

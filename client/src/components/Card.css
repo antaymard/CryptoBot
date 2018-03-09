@@ -31,6 +31,20 @@
   padding: 0 10px;
   border-radius: 0 0 3px 3px;
 }
+/* Couleur de pastille last order */
+.indicator {
+  color : #9E9E9E;
+  opacity: 0.75;
+}
+.hasGained {
+  color : #4CAF50;
+}
+.hasLost {
+  color : #F44336;
+}
+.indicator:hover {
+  opacity: 1;
+}
 .popUpBtnDiv {
   width: 600px;
   z-index: 20;
@@ -59,6 +73,14 @@
   overflow-y: scroll;
 }
 
+/* Table style */
+.buyRow {
+  border-left : 2px solid #4CAF50;
+}
+.sellRow {
+  border-left : 2px solid #F44336;
+}
+
 
 /* ======= Card Detail */
 .title {
@@ -71,6 +93,7 @@
 }
 .title a {
   margin-left: 5px;
+  color: grey;
 }
 
 .currencyLogo {

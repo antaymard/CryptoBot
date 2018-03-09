@@ -1,19 +1,22 @@
 import React, { Component } from 'react';
-import CardSmallChart from './CardSmallChart.js';
+import CardSmallChartBar from './CardSmallChartBar.js';
 
 import CandleChartIcon from 'react-icons/lib/md/equalizer';
+import CurrencyPageIcon from 'react-icons/lib/md/book';
 import Draggable from 'react-draggable';
 
 import './Card.css';
 
 import CloseIcon from 'react-icons/lib/md/close.js';
 import RefreshIcon from 'react-icons/lib/md/refresh';
+import IndicatorIcon from 'react-icons/lib/md/brightness-1';
 
 
 class OrderDiv extends Component {
+  
   renderOrderList = () => {
     return this.props.data.map(_data => (
-      <tr key={_data.OrderUuid}>
+      <tr key={_data.OrderUuid} className={_data.OrderType.slice(6) == 'BUY' ? 'buyRow' : 'sellRow'}>
         <td>{_data.TimeStamp.slice(8,10)}/{_data.TimeStamp.slice(5,7)}/{_data.TimeStamp.slice(2,4)}
         <br/>
           {_data.TimeStamp.slice(11,19)}
@@ -33,7 +36,7 @@ class OrderDiv extends Component {
 
   render() {
     console.log(this.props.data);
-    if (this.props.data) {
+    if (this.props.data && this.props.data.length !== 0) {
       return(
         <Draggable handle=".orderDivHeader">
         <div className="popUpBtnDiv backDropped-dark" style={{right:"0px", bottom:'40px', width:'auto'}}>
@@ -68,7 +71,15 @@ class OrderDiv extends Component {
 
       )
     } else {
-      return null
+      return (
+        <Draggable handle=".orderDivHeader">
+        <div className="popUpBtnDiv backDropped-dark" style={{right:"0px", bottom:'40px', width:'auto'}}>
+          <div className='orderDivHeader'>
+            <p>Aucun ordre passé récemment sur ce marché</p>
+          </div>
+        </div>
+        </Draggable>
+      )
     }
   }
 }
@@ -95,9 +106,10 @@ class TradingDiv extends Component {
     fetch('/api/getPreTransactionInfo/' + this.props.currency)
       .then(res => res.json())
       .then(res => {
+        console.log(res)
         this.setState({
-          btcBalance : res[0].result.Balance,
-          currBalance : res[1].result.Balance,
+          btcBalance : res[0].result.Available,
+          currBalance : res[1].result.Available,
           currInfo : res[2].result
         });
         this.prefillTradingForm();
@@ -197,8 +209,8 @@ class TradingDiv extends Component {
           </div>
           <div className='orderDivBody'>
             <div style={{marginBottom : "10px", display:'flex', flexDirection:'row', justifyContent:'space-between'}}>
-              <p>Balance {this.props.currency} : {this.state.currBalance}</p>
-              <p>Balance BTC : {this.state.btcBalance}</p>
+              <p>Disponible {this.props.currency} : {this.state.currBalance}</p>
+              <p>Disponible BTC : {this.state.btcBalance}</p>
             </div>
             <div style={{marginBottom : "10px", display:'flex', flexDirection:'row', justifyContent:'space-between'}}>
               <p>Bid : {this.state.currInfo.Bid}</p>
@@ -253,7 +265,7 @@ class TradingDiv extends Component {
 class Card extends Component {
   state = {
     sendToParentIsOver : false,
-    autoRefresh : false,
+    autoRefresh : true,
     reRender : true,
     cours : null,
     balance : this.props.balance,
@@ -339,9 +351,11 @@ class Card extends Component {
     if (this.state.orderHistory && this.state.cours) {
       var _lastBuyOrder = this.state.orderHistory.filter(_order => _order.OrderType === 'LIMIT_BUY');
       if (_lastBuyOrder[0]) {
+        var _delta = (((this.state.cours-_lastBuyOrder[0].PricePerUnit)/this.state.cours)*100).toFixed(2);
         return (
           <p style={{color:"white", marginRight:'15px'}}>
-            Dernier achat à {_lastBuyOrder[0].PricePerUnit} BTC ({(((this.state.cours-_lastBuyOrder[0].PricePerUnit)/this.state.cours)*100).toFixed(2)} %)
+            Dernier achat à {_lastBuyOrder[0].PricePerUnit} BTC ({_delta} %)
+            <span className={'indicator ' + (Number(_delta) >= 0 ? 'hasGained' : 'hasLost')}> <IndicatorIcon/></span>
           </p>
       )} else {
         return (<p style={{marginRight:'15px'}}>No recent buy order</p>)
@@ -373,7 +387,7 @@ class Card extends Component {
   }
 
   render() {
-    console.log(this.state);
+    //console.log(this.state);
     return (
     <div className="cardBody">
 
@@ -382,6 +396,10 @@ class Card extends Component {
           <p className='title'>
             <img  className='currencyLogo' src ={this.state.logoUrl} />
             {this.state.marketCurrencyLong} ({this.props.currency})
+            <a target="_blank" style={{color:"#884d8"}}
+               href={'https://bittrex.com/Market/Index?MarketName=BTC-'+ this.props.currency}>
+                  <CurrencyPageIcon/>
+            </a>
             <a target="_blank" style={{color:"#884d8"}}
                href={'https://bittrex.com/market/marketStandardChart?MarketName=BTC-'+ this.props.currency}>
                   <CandleChartIcon/>
@@ -392,13 +410,13 @@ class Card extends Component {
             Eq BTC : {Math.round(this.state.eqBtc*100000000)/100000000} BTC
             <br/>
             <br/>
-            <b>Cours : {this.state.cours ? this.state.cours + ' BTC': 'Getting Cours...'}</b>
+            <b>Cours : {this.state.cours ? this.state.cours + (this.props.currency === 'BTC' ? ' $' : ' BTC'): 'Getting Cours...'}</b>
             <br/>
           </div>
         </div>
 
         <div className="cardSection" style={{width:"50%"}}>
-          < CardSmallChart
+          <CardSmallChartBar
                 currency={this.props.currency}
                 selectedDateForCharts={this.props.selectedDateForCharts}
                 ref={"card" + this.props.currency}

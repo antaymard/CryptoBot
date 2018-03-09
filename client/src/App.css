@@ -13,6 +13,7 @@ p {
   flex-direction: row;
   /* background-image: url('https://wallpaperclicker.com/storage/wallpaper/High-Definition-Ultra-HD-Wallpaper-96262544.jpg');*/
   background: #ECEFF1;  /* fallback for old browsers */
+  min-height: 100vh;
 }
 
 .rowWithNoMargin {

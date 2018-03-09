@@ -1,8 +1,5 @@
 import React, { Component } from 'react';
-import CardSmallChart from './CardSmallChart.js';
-
-import CandleChartIcon from 'react-icons/lib/md/equalizer';
-
+import CardSmallChartBar from './CardSmallChartBar.js';
 
 import './Card.css';
 
@@ -35,9 +32,10 @@ class RefCurrCard extends Component {
         </div>
 
         <div className="cardSection" style={{width:"50%"}}>
-          < CardSmallChart currency={this.props.currency}
+          <CardSmallChartBar currency={this.props.currency}
             selectedDateForCharts={this.props.selectedDateForCharts}
-            ref="card"/>
+            ref="card"
+          />
         </div>
       </div>
     </div>

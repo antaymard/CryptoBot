@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import './TopMainBar.css';
 
-import CardSmallChart from './CardSmallChart.js';
 import NotifPopup from './NotifPopup.js';
 
 

@@ -28,16 +28,10 @@ colors.setTheme({
   })
 
 // GLOBAL VALUES ===============================================================
-var state = {
-}
+var algoPumpState = [];
+var allCurrencySubArray = [];
+var allCurrencyArray = [];
 
-/*
-WALLET DATA
-  price_usd
-  price_btc
-  wallet => object avec true false
-  date ??????
-*/
 
 // var _bouga = 'c2dcb79d-57ea-4b17-895c-a6f8663390a9';
 // bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/account/getorder?uuid=' + _bouga, function( data, err ) {
@@ -53,16 +47,8 @@ WALLET DATA
 
 // TESTS =======================================================================
 
-// TODO: Récupérer la liste des monnaies tradable
-// TODO: Créer un array contenant toutes les monnaies
-// TODO: Enregistrer dans base de données
-// TODO: Parcourir l'array, calculer la moyenne à partir des candles sur les n-X dernières valeurs
-// TODO: Comparer la moyenne à la dernière valeurs
-// TODO: Placer la monnaie dans le wallet 'forte croissance'
-
 // INPUT ### Récupère toutes les monnaies
 function getAllMarketsName () {
-  var allCurrencyArray = [];
   return new Promise((resolve, reject) => {
     request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
       if (err) {
@@ -87,86 +73,132 @@ function getAllMarketsName () {
 
 // INPUT ### array de > 260 marchés
 function splitArray (_array, _size) {
-  console.log('splitArray called');
-  var allCurrencySubArray = [];
-  for (var _i=0; _i < (_array.length/_size); _i++) {
-    allCurrencySubArray.push(
-      _array.slice(_i*_size, (_size)*(_i+1)-1)
-    )
-  }
-  console.log('treated array is %s long'.important, allCurrencySubArray.length);
-  console.log(allCurrencySubArray);
+  return new Promise((resolve, reject) => {
+    _size = _size + 1; // Correction
+    console.log('splitArray called');
+    for (var _i=0; _i < (_array.length/_size); _i++) {
+      allCurrencySubArray.push(
+        _array.slice(_i*_size, (_size)*(_i+1)-1)
+      )
+    }
+    console.log('treated array is %s long'.important, allCurrencySubArray.length);
+    console.log(allCurrencySubArray);
+    return resolve(allCurrencySubArray);
+  })
 }
+// OUTPUT ### array de X array de 20 marchés
 
-//analyseIfPumped ('BTC', 'ETH', 'fiveMin', 3, 2);
 getAllMarketsName()
   .then(_r => {
     splitArray(_r, 10);
+    launchAllAlgoPump();
   })
 
-// getAllMarketsName()
-//   .then(_r => {
-//     for (var _i in _r) {
-//       getCurrencyCandles(_r[_i], '1x5min')
-//         .then(_s => {
-//           console.log(_s);
-//         })
-//     }
-//   })
 
 
 
-function analyseIfPumped (_refCurr, _curr, _tickInterval, _nbPeriods, _threshold) {
+function launchAllAlgoPump () {
+  for (var _i in allCurrencyArray) {
+    analyseIfPumped(allCurrencyArray[_i], 'fiveMin', 20, 1, 1)
+      .then(res => {
+        console.log('result is'.success);
+        console.log(res);
+        refreshAlgoPumpState(res);
+      })
+      .catch(err => console.log(err))
+  }
+}
+
+analyseIfPumped('BTC-LTC', 'fiveMin', 20, 1, 1)
+  .then(res => {
+    console.log('result is'.success);
+    console.log(res);
+    refreshAlgoPumpState(res);
+  })
+  .catch(err => console.log(err))
+
+// Fonction d'analyse
+  // market = 'BTC-LTC'
+  // tickInterval = largeur des candles => normalement 'fiveMin'
+  // nbPeriodsFrom = nombre de periodes sur lesquelles revenir en arrière pour calculer la moyenne
+  // nbPeriodsTill = nombre de periodes en arrière jusqu'auxquelles aller pour calculer (ex pas sur les 5 dernières)
+  // threshold = multiplicateur entre moyenne et dernière valeur au dessus duquel la monnaie est à retenir
+function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, threshold) {
+  console.log("analyseIfPumped has been launched for %s".important, market);
   return new Promise((resolve, reject) => {
     // 1 - GET CANDLES
-    var _market = _refCurr + '-' + _curr;
-    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + _market
-    +'&tickInterval=' + _tickInterval + '&_=1500915289433',
+    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + market
+    +'&tickInterval=' + tickInterval + '&_=1500915289433',
     function (err, response, body) {
       if (err) {
-        console.log("Fail recovering one candle".error);
+        console.log("Pump Algo : Fail recovering %s candle".error, market);
         console.log(err);
         reject({
-          success : false,
-          message : "Fail recovering one candle",
-          result : err
+          error : true,
+          message : "Pump Algo : Fail recovering candle for " + market,
         });
       }
+
       if (body) {
         var _b = JSON.parse(body);
         if (_b.result) {
-          console.log('Pump algo candle recieved'.important);
-          var _lasts = _b.result.slice(-_nbPeriods);
-          console.log(_lasts);
+          var _candlesUnsliced = _b.result;
+          console.log('Pump Algo : candle recieved for %s'.info, market);
+
+          var _candlesToConsider = [];
+          if (nbPeriodsTill == 0) {
+            _candlesToConsider = _candlesUnsliced.slice(-nbPeriodsFrom);
+          } else {
+            _candlesToConsider = _candlesUnsliced.slice(-nbPeriodsFrom, -nbPeriodsTill);
+          }
+          console.log(_candlesToConsider);
 
           // 2- Calculate mean
-          var _sum = 0;
-          for (var _i = 0 ; _i < _lasts.length-1; _i++) {
-            _sum += _lasts[_i].V;
+          var _candlesVolumeSum = 0;
+          for (var _i = 0 ; _i < _candlesToConsider.length; _i++) {
+            _candlesVolumeSum += _candlesToConsider[_i].BV;
           }
-          console.log('Sum is %s', _sum);
+          console.log('Sum is %s'.info, _candlesVolumeSum);
 
-          var _mean = _sum / (_lasts.length-1);
-          console.log('Mean is %s', _mean);
+          var _candleVolumeMean = _candlesVolumeSum / (_candlesToConsider.length); // TODO: -1 ????
+          console.log('Mean is %s', _candleVolumeMean);
 
-          console.log(_lasts[_lasts.length-1].V);
-          console.log(_mean*_threshold);
-          if (_lasts[_lasts.length-1].V > _mean*_threshold) {
-            console.log('POSITIVE'.success);
+          // 3- confronte mean and last value
+          var _lastVolumeValue = _candlesUnsliced[_candlesUnsliced.length-1].BV; // prend le dernier candle volume
+          console.log('Last volume is %s'.important, _lastVolumeValue);
+
+          console.log('threshold is %s'.info, threshold)
+          console.log('Absolute threshold is %s'.important, _candleVolumeMean*threshold);
+
+          if (_candlesUnsliced[_candlesUnsliced.length-1].C > _candlesUnsliced[_candlesUnsliced.length-1].O) {
+            console.log('%s is POSITIVE'.success, market);
             resolve({
-              sucess : true,
-              message : _refCurr + '-' +_curr,
-              result : ''
+              market : market,
+              updateDate : new Date(),
+              lastCandleIsPositive : true,
+              meanVolume : _candleVolumeMean,
+              lastVolume : _lastVolumeValue,
+              candlesToConsider : _candlesToConsider,
+              parameters : nbPeriodsFrom + ', ' + nbPeriodsTill + ', ' + threshold
             })
           } else {
-            console.log('NEGATIVE'.error);
+            console.log('%s is NEGATIVE'.error, market);
+            resolve ({
+              market : market,
+              updateDate : new Date(),
+              lastCandleIsPositive : false,
+              meanVolume : _candleVolumeMean,
+              lastVolume : _lastVolumeValue,
+              candlesToConsider : _candlesToConsider,
+              parameters : nbPeriodsFrom + ', ' + nbPeriodsTill + ', ' + threshold
+            })
           }
 
         } else {
-          reject ({
-            success : false,
-            message : 'No body.result',
-            result : null
+          console.log("Algo Pump Error : no body.result".error);
+          return eject ({
+            error : true,
+            message : 'No body.result'
           })
         }
       }
@@ -174,29 +206,35 @@ function analyseIfPumped (_refCurr, _curr, _tickInterval, _nbPeriods, _threshold
   })
 }
 
+function refreshAlgoPumpState (a) {
+  console.log("algoPumpState is".info);
+  console.log(algoPumpState);
+  console.log('refreshing algoPumpState'.info);
+  var _index = algoPumpState.findIndex(_r => _r.market == a.market);
+  console.log('_index is ' + _index);
 
-  [{
-    O: 7.9e-7,
-    H: 7.9e-7,
-    L: 7.9e-7,
-    C: 7.9e-7,
-    V: 385441.62016178,
-    T: '2018-02-15T09:24:00',
-    BV: 0.30449881
-  },
-  {
-    O: 7.9e-7,
-    H: 7.9e-7,
-    L: 7.8e-7,
-    C: 7.9e-7,
-    V: 584037.03684999,
-    T: '2018-02-15T09:25:00',
-    BV: 0.46069974
-  }]
+  // si présent => update
+  if (_index > -1 ) {
+    console.log("Présent de algoPumpState".important);
+    algoPumpState[_index] = a;
+  }
+  else { // sinon ajouter
+    console.log("Absent dans algoPumpState".important);
+    algoPumpState.push(a);
+  }
+  console.log('algoPumpState is'.success);
+  console.log(algoPumpState);
+}
 
 
 //==============================================================================
 //---------------------- MY API SHIT GOES HERE ---------------------------------
+
+// Récupère les résutltats de l'algo Pump
+app.get('/api/getPumpAlgoResults', (req, res) => {
+  console.log("getPumpAlgoResults called".success);
+  res.json(algoPumpState);
+})
 
 // Cancel an open order
 app.get('/api/cancelOpenOrder/:orderId', (req, res) => {
@@ -304,10 +342,10 @@ app.get('/api/getBitcoinInfo', (req, res) => {
 app.get('/api/getWalletArchive/:selectedDateForCharts', (req, res) => {
   var _timeSelected = req.params.selectedDateForCharts;
   var _now = new Date().getTime()/1000; // Définit maintenant en timestamp
-  var _timeArray = ['3h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
+  var _timeArray = ['1h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
   var _timeIndex = _timeArray.indexOf(_timeSelected); //Dis à quelle position est le temps demandé
   var _delta=[
-    3,
+    1,
     6,
     12,
     24,
@@ -417,7 +455,7 @@ function checkIfTradeOrderSucceed (_curr, _uuid, _isLimiteOrder) {
         }
       } else {
         console.log('no match'.error);
-        reject({ message : 'Order has canceled ???' })
+        reject({ message : 'Order has canceled' })
       }
     });
   })
@@ -602,11 +640,11 @@ function getCurrencyCandles(_curr, _selectedDate) {
 
     var _now = new Date().getTime()/1000; // Définit maintenant en timestamp
 
-    var _timeArray = ['3h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m', '1x5min' ];
+    var _timeArray = ['1h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m', '1x5min' ];
     var _timeIndex = _timeArray.indexOf(_timeSelected); //Dis à quelle position est le temps demandé
 
     var _delta = [
-      3,
+      1,
       6,
       12,
       24,

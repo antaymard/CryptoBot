@@ -6,8 +6,6 @@ import RefCurrCard from './RefCurrCard.js';
 import ClassicPieChart from './ClassicPieChart.js'
 import ClassicCard from './ClassicCard.js';
 
-import CardSmallChart from './CardSmallChart.js';
-
 import { ResponsiveContainer, LineChart, Line, CartesianGrid,
   Tooltip, YAxis, XAxis,ReferenceLine } from 'recharts';
 
@@ -20,7 +18,7 @@ import RefreshIcon from 'react-icons/lib/md/refresh';
 
 
 
-const chartDateButton = ['3h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
+const chartDateButton = ['1h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
 
 class WalletLineChart extends Component {
 
@@ -134,7 +132,7 @@ class ClassicWallet extends Component {
       .then(res => res.json())
       .then(res => {
         this.setState({ walletArchive : res});
-        console.log(this.state.walletArchive);
+        //console.log(this.state.walletArchive);
       })
   }
 
