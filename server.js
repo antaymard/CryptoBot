@@ -5,6 +5,7 @@ const colors = require('colors');
 const request = require('request');
 var fetch = require('node-fetch');
 var ontime = require('ontime'); // Lance des fonctions à heure donnée
+const fs = require('fs');
 
 var bodyParser = require('body-parser');
 app.use(bodyParser.json()); // support json encoded bodies
@@ -28,94 +29,54 @@ colors.setTheme({
   })
 
 // GLOBAL VALUES ===============================================================
+
 var algoPumpState = [];
-var allCurrencySubArray = [];
-var allCurrencyArray = [];
+var algoPumpOptions = {
+};
 
 
 // var _bouga = 'c2dcb79d-57ea-4b17-895c-a6f8663390a9';
-// bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/account/getorder?uuid=' + _bouga, function( data, err ) {
-//   if (err) {
-//     console.log('TEST'.error);
-//     return console.log(err.message);
-//   }
-//   console.log('TEST'.success);
-//   console.log( data );
-// }, true );
+  // bittrex.sendCustomRequest( 'https://bittrex.com/api/v1.1/account/getorder?uuid=' + _bouga, function( data, err ) {
+  //   if (err) {
+  //     console.log('TEST'.error);
+  //     return console.log(err.message);
+  //   }
+  //   console.log('TEST'.success);
+  //   console.log( data );
+  // }, true );
 
 
 
 // TESTS =======================================================================
 
-// INPUT ### Récupère toutes les monnaies
-function getAllMarketsName () {
-  return new Promise((resolve, reject) => {
-    request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
-      if (err) {
-        console.log('Pb getting all markets name'.error);
-        return reject(err);
-      }
-      // Parse le resultat en JSON
-      body = JSON.parse(body);
-      var _r = body.result;
+ReadAlgoPumpOptionsTxt();
 
-      // Créer un array avec seulement les XXX de devises.
-      for (var _i in _r) {
-        allCurrencyArray.push(_r[_i].BaseCurrency + '-' + _r[_i].MarketCurrency);
-      }
-      console.log('untreated array is %s long'.important, allCurrencyArray.length);
-      console.log(allCurrencyArray[0]);
-      return resolve(allCurrencyArray);
-    })
-  })
-}
-// OUTPUT ### [ 'BTC-LTC',...]
 
-// INPUT ### array de > 260 marchés
-function splitArray (_array, _size) {
-  return new Promise((resolve, reject) => {
-    _size = _size + 1; // Correction
-    console.log('splitArray called');
-    for (var _i=0; _i < (_array.length/_size); _i++) {
-      allCurrencySubArray.push(
-        _array.slice(_i*_size, (_size)*(_i+1)-1)
-      )
+// Initie les valeurs d'options
+function ReadAlgoPumpOptionsTxt() {
+  fs.readFile('./algoPumpOptions.txt', 'utf8', (err, data) => {
+    if (err) {
+      console.log("Error reading algoPumpOptions.txt".error);
+      console.log(err);
     }
-    console.log('treated array is %s long'.important, allCurrencySubArray.length);
-    console.log(allCurrencySubArray);
-    return resolve(allCurrencySubArray);
-  })
-}
-// OUTPUT ### array de X array de 20 marchés
-
-getAllMarketsName()
-  .then(_r => {
-    splitArray(_r, 10);
-    launchAllAlgoPump();
-  })
-
-
-
-
-function launchAllAlgoPump () {
-  for (var _i in allCurrencyArray) {
-    analyseIfPumped(allCurrencyArray[_i], 'fiveMin', 20, 1, 1)
-      .then(res => {
-        console.log('result is'.success);
-        console.log(res);
-        refreshAlgoPumpState(res);
-      })
-      .catch(err => console.log(err))
-  }
+    console.log('Recovering data from local file'.info);
+    data = JSON.parse(data);
+    for (var _i in data) {
+      algoPumpOptions[_i] = data[_i]
+    }
+  });
 }
 
-analyseIfPumped('BTC-LTC', 'fiveMin', 20, 1, 1)
-  .then(res => {
-    console.log('result is'.success);
-    console.log(res);
-    refreshAlgoPumpState(res);
-  })
-  .catch(err => console.log(err))
+function updateAlgoPumpOptionsTxt(a) {
+  fs.writeFile("./algoPumpOptions.txt", JSON.stringify(a, null, "\t"), function(err) {
+    if(err) {
+        return console.log(err);
+    }
+    console.log("algoPumpOptions.txt has been updated");
+});
+}
+
+
 
 // Fonction d'analyse
   // market = 'BTC-LTC'
@@ -123,7 +84,7 @@ analyseIfPumped('BTC-LTC', 'fiveMin', 20, 1, 1)
   // nbPeriodsFrom = nombre de periodes sur lesquelles revenir en arrière pour calculer la moyenne
   // nbPeriodsTill = nombre de periodes en arrière jusqu'auxquelles aller pour calculer (ex pas sur les 5 dernières)
   // threshold = multiplicateur entre moyenne et dernière valeur au dessus duquel la monnaie est à retenir
-function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, threshold) {
+function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, threshold, dateOfPump) {
   console.log("analyseIfPumped has been launched for %s".important, market);
   return new Promise((resolve, reject) => {
     // 1 - GET CANDLES
@@ -144,6 +105,15 @@ function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, th
         if (_b.result) {
           var _candlesUnsliced = _b.result;
           console.log('Pump Algo : candle recieved for %s'.info, market);
+          console.log(_candlesUnsliced[0]);
+
+          // TODO: "2018-03-09T20:54:30.771Z"
+          if (dateOfPump !== '') {
+            console.log("Date was provided".error);
+            var _candlesUnsliced = _candlesUnsliced.filter(r => r.T <= dateOfPump);
+            console.log('T is '.success);
+            //console.log(t[t.length-1]);
+          }
 
           var _candlesToConsider = [];
           if (nbPeriodsTill == 0) {
@@ -151,27 +121,33 @@ function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, th
           } else {
             _candlesToConsider = _candlesUnsliced.slice(-nbPeriodsFrom, -nbPeriodsTill);
           }
-          console.log(_candlesToConsider);
+          // console.log(_candlesToConsider);
 
           // 2- Calculate mean
           var _candlesVolumeSum = 0;
           for (var _i = 0 ; _i < _candlesToConsider.length; _i++) {
             _candlesVolumeSum += _candlesToConsider[_i].BV;
           }
-          console.log('Sum is %s'.info, _candlesVolumeSum);
+          // console.log('Sum is %s'.info, _candlesVolumeSum);
 
           var _candleVolumeMean = _candlesVolumeSum / (_candlesToConsider.length); // TODO: -1 ????
-          console.log('Mean is %s', _candleVolumeMean);
+          // console.log('Mean is %s', _candleVolumeMean);
 
           // 3- confronte mean and last value
+          if (_candlesUnsliced.length == 0) {
+            return reject({
+              error : true,
+              message : 'no data - recently added currency'
+            })
+          }
           var _lastVolumeValue = _candlesUnsliced[_candlesUnsliced.length-1].BV; // prend le dernier candle volume
-          console.log('Last volume is %s'.important, _lastVolumeValue);
+          // console.log('Last volume is %s'.important, _lastVolumeValue);
 
-          console.log('threshold is %s'.info, threshold)
-          console.log('Absolute threshold is %s'.important, _candleVolumeMean*threshold);
+          // console.log('threshold is %s'.info, threshold)
+          // console.log('Absolute threshold is %s'.important, _candleVolumeMean*threshold);
 
           if (_candlesUnsliced[_candlesUnsliced.length-1].C > _candlesUnsliced[_candlesUnsliced.length-1].O) {
-            console.log('%s is POSITIVE'.success, market);
+            // console.log('%s is POSITIVE'.success, market);
             resolve({
               market : market,
               updateDate : new Date(),
@@ -182,7 +158,7 @@ function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, th
               parameters : nbPeriodsFrom + ', ' + nbPeriodsTill + ', ' + threshold
             })
           } else {
-            console.log('%s is NEGATIVE'.error, market);
+            // console.log('%s is NEGATIVE'.error, market);
             resolve ({
               market : market,
               updateDate : new Date(),
@@ -196,7 +172,7 @@ function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, th
 
         } else {
           console.log("Algo Pump Error : no body.result".error);
-          return eject ({
+          return reject ({
             error : true,
             message : 'No body.result'
           })
@@ -206,29 +182,97 @@ function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, th
   })
 }
 
+
+//==============================================================================
+//---------------------- ALGO PUMP SPECIFIC FUNCTIONS --------------------------
+
+// On boot => constitue la liste des currencies
+getAllMarketsName(algoPumpOptions.currencyFilter)
+  .then(
+    console.log("All Markets recieved".success)
+  )
+
+// INPUT ### Récupère toutes les monnaies et en fait un Array
+  // currencyFilter = 'BTC' ou 'ETH' ou 'USDT' pour sélectionner seulement les bases BTC ou ETH
+var allCurrencyArray = [];
+function getAllMarketsName (currencyFilter) {
+  return new Promise((resolve, reject) => {
+    request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
+      if (err) {
+        console.log('Pb getting all markets name'.error);
+        return reject(err);
+      }
+      // Parse le resultat en JSON
+      body = JSON.parse(body);
+      var _r = body.result;
+
+      // Créer un array avec seulement les XXX de devises.
+      for (var _i in _r) {
+        allCurrencyArray.push(_r[_i].BaseCurrency + '-' + _r[_i].MarketCurrency);
+      }
+      if (currencyFilter) {
+        allCurrencyArray = allCurrencyArray.filter(s => s.substring(0,3) == currencyFilter);
+      }
+      console.log('untreated array is %s long'.important, allCurrencyArray.length);
+      //console.log(allCurrencyArray);
+      return resolve(allCurrencyArray);
+    })
+  })
+}
+// OUTPUT ### [ 'BTC-LTC',...]
+
+// Met à jour les infos les résultats des calculs de l'AlgoPump
 function refreshAlgoPumpState (a) {
-  console.log("algoPumpState is".info);
-  console.log(algoPumpState);
-  console.log('refreshing algoPumpState'.info);
+  // console.log("algoPumpState is".info);
+  // console.log(algoPumpState);
+  // console.log('refreshing algoPumpState'.info);
   var _index = algoPumpState.findIndex(_r => _r.market == a.market);
-  console.log('_index is ' + _index);
+  // console.log('_index is ' + _index);
 
   // si présent => update
   if (_index > -1 ) {
-    console.log("Présent de algoPumpState".important);
+    // console.log("Présent de algoPumpState".important);
     algoPumpState[_index] = a;
   }
   else { // sinon ajouter
-    console.log("Absent dans algoPumpState".important);
+    // console.log("Absent dans algoPumpState".important);
     algoPumpState.push(a);
   }
-  console.log('algoPumpState is'.success);
-  console.log(algoPumpState);
+  // console.log('algoPumpState is'.success);
+  // console.log(algoPumpState);
+}
+
+// Scan toutes les monnaies puis les analyse puis refresh les infos
+function launchAllAlgoPump () {
+  for (var _i in allCurrencyArray) {
+    analyseIfPumped(allCurrencyArray[_i], algoPumpOptions.tickInterval,
+      algoPumpOptions.nbPeriodsFrom, algoPumpOptions.nbPeriodsTill,
+      algoPumpOptions.threshold, algoPumpOptions.dateOfPump)
+      .then(res => {
+        // console.log('result is'.success);
+        // console.log(res);
+        refreshAlgoPumpState(res);
+      })
+      .catch(err => console.log(err))
+  }
 }
 
 
 //==============================================================================
 //---------------------- MY API SHIT GOES HERE ---------------------------------
+
+app.get('/api/changeDateOfPump/:dateOfPump', (req, res) => {
+  console.log("changing dateOfPump".important);
+  algoPumpOptions.dateOfPump = req.params.dateOfPump;
+  updateAlgoPumpOptionsTxt(algoPumpOptions);
+  launchAllAlgoPump();
+  console.log("OPTIONS ARE".important);
+  console.log('dateOfPump: ' + algoPumpOptions.dateOfPump);
+  res.json({message : 'done'});
+})
+app.get('/api/getDateOfPump', (req, res) => {
+  res.json({dateOfPump : algoPumpOptions.dateOfPump});
+})
 
 // Récupère les résutltats de l'algo Pump
 app.get('/api/getPumpAlgoResults', (req, res) => {
@@ -868,7 +912,7 @@ ontime({
 //----------------------------- SERVER BOOTING ---------------------------------
 
 // Serve static files from React app
-app.use(express.static(path.join(__dirname, 'client/bluid')));
+app.use(express.static(path.join(__dirname, 'client/build')));
 
 // Other requests that triggers the index display
 app.get('*', (req, res) => {

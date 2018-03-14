@@ -1,0 +1,8 @@
+{
+	"dateOfPump": "2018-03-09T23:20:00",
+	"currencyFilter": "BTC",
+	"tickInterval": "fiveMin",
+	"nbPeriodsFrom": 20,
+	"nbPeriodsTill": 0,
+	"threshold": 6
+}
