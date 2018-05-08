@@ -44,9 +44,9 @@ class App extends Component {
           <button className="btn labelBtn" name="PumpDisplay" onClick={this.handleClick}>
             Pump Algorithm
           </button>
-          <button className="btn labelBtn" name="WipDisplay" onClick={this.handleClick}>
+          {/* <button className="btn labelBtn" name="WipDisplay" onClick={this.handleClick}>
             Test Display
-          </button>
+          </button> */}
         </TopMainBar>
         <div className="mainDiv">
           {_displayed}

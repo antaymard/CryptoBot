@@ -6,10 +6,28 @@ import './Card.css';
 
 class RefCurrCard extends Component {
   state = {
-    cours : null
+    cours : null,
+    marketCurrencyLong : '',
+    logoUrl : ''
   }
 
   componentDidMount() {
+    this.getLogoAndFullName();
+    this.getCurrencyCours();
+  }
+
+  getLogoAndFullName = () => {
+    fetch('/getLogoAndFullName/' + this.props.currency)
+      .then(res => res.json())
+      .then(res => {
+        this.setState({
+          marketCurrencyLong : res.marketCurrencyLong,
+          logoUrl : res.logoUrl
+        })
+      })
+  }
+
+  getCurrencyCours = () => {
     fetch('/api/getCurrencyCours/' + this.props.currency)
       .then(res => res.json())
       .then(res => {
@@ -26,7 +44,8 @@ class RefCurrCard extends Component {
       <div className='topCardSection' style={{height:"170px"}}>
         <div className="cardSection">
           <p className="title">
-            {this.props.currency}
+            <img  className='currencyLogo' src ={this.state.logoUrl} />
+            {this.state.marketCurrencyLong} ({this.props.currency})
           </p>
           <p className="">Cours : {this.state.cours} $</p>
         </div>

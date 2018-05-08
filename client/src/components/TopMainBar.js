@@ -399,7 +399,7 @@ class TopMainBar extends Component {
                 <CloseIcon onClick={this.handleMyOrderClick}/>
               </OrderDiv> : null}
           </div>
-          <Clock format={'HH:mm'} ticking={true} timezone={'GB'} />
+          <Clock format={'HH:mm'} ticking={true} timezone={'Africa/Bamako'} />
         </div>
       </div>
     );

@@ -6,10 +6,12 @@ const request = require('request');
 var fetch = require('node-fetch');
 var ontime = require('ontime'); // Lance des fonctions à heure donnée
 const fs = require('fs');
+const mathjs = require('mathjs');
 
 var bodyParser = require('body-parser');
 app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
+const util = require('util');
 
 const config = require('./config');
 
@@ -24,14 +26,59 @@ colors.setTheme({
     important : ['bgWhite', 'black'],
     success : ['green'],
     error : ['bgRed', 'white'],
-    operations : ['bold', 'yellow'],
-    info : ["grey"]
+    operations : ['bgCyan', 'black'],
+    info : ["grey"],
+    result : ['magenta']
   })
 
 // GLOBAL VALUES ===============================================================
 
-var algoPumpState = [];
+var isToBeDeployed = true;
+
 var algoPumpOptions = {
+};
+
+var algoPumpResult = {
+  metadata : {
+    dateOfLastLaunch : null,
+    isWorking : false,        // ??
+    iterationNumber : 0
+  },
+  algoParameters : {
+    // TODO : Fill this area
+  },
+  results : {
+    // 'BTC-XXX' : {
+    //   dateOfLastLaunch : 'DATE',
+    //   isWorking : true,
+    //   hasErrored : false,
+    //   notProcessedBecause : null,   // non processed car déjà en portefeuille, ou blacklistée par ex
+    //   rawData : {
+    //     fiveMinCandles : [],
+    //     lastFiveMinCandleVolume : null,
+    //     //lastFiveMinCandleDate : null, // ???
+    //     oneMinCandles : [],
+    //     calculatedLastFiveMinCandle : {}
+    //   },
+    //   calculatedData : {
+    //     meanVolume : 0,
+    //     varianceVolume : 0,
+    //     normVarianceVolume : 0,
+    //     nbOfDiscoutinuousFiveMin : 0,
+    //     lastOnMeanRatio : 0,
+    //     lastFiveMinCandleIsPositive : true,
+    //   },
+    //   decisionData : {
+    //
+    //   },
+    //   monitoring : {
+    //     nbOfAchievedOperations : 0,
+    //     totalNbOfOperations : 10,
+    //     currentStep : null,
+    //     hasBeenAnalyzed : false,
+    //   }
+    // }
+  }
 };
 
 
@@ -45,161 +92,220 @@ var algoPumpOptions = {
   //   console.log( data );
   // }, true );
 
+// BOOTING SEQUENCE ======
+
+ReadAlgoPumpOptionsTxt()
+  .then(() => {
+    //constitue la liste des currencies
+    getAllMarketsName(algoPumpOptions.currencyFilter)
+      .then(() => {
+        //getFiveMinCandles('BTC-EMC2', algoPumpOptions);
+        launchPumpAnalyse('BTC-EBST', algoPumpOptions, false);
+      })
+  })
+  .catch(err => {
+    console.log('ERROR in booting sequence'.error, err)
+  });
 
 
 // TESTS =======================================================================
 
-ReadAlgoPumpOptionsTxt();
+// bittrex.getmarketsummary( { market : 'BTC-LTC'}, function( data, err ) {
+//   console.log( data );
+// });
 
 
-// Initie les valeurs d'options
-function ReadAlgoPumpOptionsTxt() {
-  fs.readFile('./algoPumpOptions.txt', 'utf8', (err, data) => {
-    if (err) {
-      console.log("Error reading algoPumpOptions.txt".error);
-      console.log(err);
-    }
-    console.log('Recovering data from local file'.info);
-    data = JSON.parse(data);
-    for (var _i in data) {
-      algoPumpOptions[_i] = data[_i]
-    }
-  });
+function launchPumpAnalyse (market, options, isOldPump) {
+  // Refresh algo metadata
+  algoPumpResult.metadata.dateOfLastLaunch = new Date();
+  algoPumpResult.metadata.iterationNumber++;
+
+  // refreshAlgoPumpResult('BTC-XXX', {dateOfLastLaunch : 'THIS IS A TEST'});
+
+  setTimeout(() => {
+    console.log(util.inspect(algoPumpResult, false, null))
+  }, 10000)
+
+  for (var _i in allCurrencyArray) {
+    getFiveMinCandles(allCurrencyArray[_i], options, isOldPump)
+      .then((candlesToConsider) => {
+          // Lance analyse des candles de 5 min
+          calculateFiveMinData(allCurrencyArray[_i], candlesToConsider);
+          // LANCE LA RECUPERATION DE LA CANDLE 5 MIN
+          // return getOneMinCandles(market, candlesToConsider[candlesToConsider.length-1]);
+          //console.log(util.inspect(algoPumpResult, false, null))
+          return resolve();
+      })
+
+  }
 }
 
-function updateAlgoPumpOptionsTxt(a) {
-  fs.writeFile("./algoPumpOptions.txt", JSON.stringify(a, null, "\t"), function(err) {
-    if(err) {
-        return console.log(err);
-    }
-    console.log("algoPumpOptions.txt has been updated");
-});
-}
+// DONE ========================================================================
+function getFiveMinCandles (market, options, isOldPump) {
 
-
-
-// Fonction d'analyse
-  // market = 'BTC-LTC'
-  // tickInterval = largeur des candles => normalement 'fiveMin'
-  // nbPeriodsFrom = nombre de periodes sur lesquelles revenir en arrière pour calculer la moyenne
-  // nbPeriodsTill = nombre de periodes en arrière jusqu'auxquelles aller pour calculer (ex pas sur les 5 dernières)
-  // threshold = multiplicateur entre moyenne et dernière valeur au dessus duquel la monnaie est à retenir
-function analyseIfPumped (market, tickInterval, nbPeriodsFrom, nbPeriodsTill, threshold, dateOfPump) {
-  console.log("analyseIfPumped has been launched for %s".important, market);
+  console.log('== Getting 5 min Candles for %s', market.toUpperCase());
   return new Promise((resolve, reject) => {
-    // 1 - GET CANDLES
     request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + market
-    +'&tickInterval=' + tickInterval + '&_=1500915289433',
-    function (err, response, body) {
+      +'&tickInterval=' + "fiveMin" + '&_=1500915289433',
+    (err, response, body) => {
       if (err) {
-        console.log("Pump Algo : Fail recovering %s candle".error, market);
+        console.log('Error requesting fiveMin Candles for %s'.error, market);
         console.log(err);
-        reject({
-          error : true,
-          message : "Pump Algo : Fail recovering candle for " + market,
-        });
+        return reject(err);
       }
 
       if (body) {
-        var _b = JSON.parse(body);
-        if (_b.result) {
-          var _candlesUnsliced = _b.result;
-          console.log('Pump Algo : candle recieved for %s'.info, market);
-          console.log(_candlesUnsliced[0]);
+        var body = JSON.parse(body);
+        if (body.result && body.result.length !== 0) {
+          console.log("   5 min candles recieved for %s".info, market);
 
-          // TODO: "2018-03-09T20:54:30.771Z"
-          if (dateOfPump !== '') {
-            console.log("Date was provided".error);
-            var _candlesUnsliced = _candlesUnsliced.filter(r => r.T <= dateOfPump);
-            console.log('T is '.success);
-            //console.log(t[t.length-1]);
+          var candlesUnsliced = body.result;
+          if (isOldPump) {                                                  // TODO: check if working
+            candlesUnsliced = candlesUnsliced.filter(a => a.T < options.dateOfPump)
           }
-
-          var _candlesToConsider = [];
-          if (nbPeriodsTill == 0) {
-            _candlesToConsider = _candlesUnsliced.slice(-nbPeriodsFrom);
+          // Ne garder que les X dernières candles
+          var candlesToConsider = [];
+          if (options.nbPeriodsTill == 0) {
+            candlesToConsider = candlesUnsliced.slice(-options.nbPeriodsFrom);
           } else {
-            _candlesToConsider = _candlesUnsliced.slice(-nbPeriodsFrom, -nbPeriodsTill);
+            candlesToConsider = candlesUnsliced.slice(-options.nbPeriodsFrom, -options.nbPeriodsTill);
           }
-          // console.log(_candlesToConsider);
+          console.log('   There are %s 5minCandles to consider'.result, candlesToConsider.length);
 
-          // 2- Calculate mean
-          var _candlesVolumeSum = 0;
-          for (var _i = 0 ; _i < _candlesToConsider.length; _i++) {
-            _candlesVolumeSum += _candlesToConsider[_i].BV;
-          }
-          // console.log('Sum is %s'.info, _candlesVolumeSum);
+          // Update algoPumpResult
+          var r = algoPumpResult.results[market];
+          r.dateOfLastLaunch = new Date();
+          r.isWorking = true;
+          r.rawData = {
+            fiveMinCandles : candlesToConsider,
+            lastFiveMinCandleVolume : candlesToConsider[candlesToConsider.length-1].BV
+          };
 
-          var _candleVolumeMean = _candlesVolumeSum / (_candlesToConsider.length); // TODO: -1 ????
-          // console.log('Mean is %s', _candleVolumeMean);
+          // END =============== RESOLVE
+          resolve(candlesToConsider, true);
 
-          // 3- confronte mean and last value
-          if (_candlesUnsliced.length == 0) {
-            return reject({
-              error : true,
-              message : 'no data - recently added currency'
-            })
-          }
-          var _lastVolumeValue = _candlesUnsliced[_candlesUnsliced.length-1].BV; // prend le dernier candle volume
-          // console.log('Last volume is %s'.important, _lastVolumeValue);
-
-          // console.log('threshold is %s'.info, threshold)
-          // console.log('Absolute threshold is %s'.important, _candleVolumeMean*threshold);
-
-          if (_candlesUnsliced[_candlesUnsliced.length-1].C > _candlesUnsliced[_candlesUnsliced.length-1].O) {
-            // console.log('%s is POSITIVE'.success, market);
-            resolve({
-              market : market,
-              updateDate : new Date(),
-              lastCandleIsPositive : true,
-              meanVolume : _candleVolumeMean,
-              lastVolume : _lastVolumeValue,
-              candlesToConsider : _candlesToConsider,
-              parameters : nbPeriodsFrom + ', ' + nbPeriodsTill + ', ' + threshold
-            })
-          } else {
-            // console.log('%s is NEGATIVE'.error, market);
-            resolve ({
-              market : market,
-              updateDate : new Date(),
-              lastCandleIsPositive : false,
-              meanVolume : _candleVolumeMean,
-              lastVolume : _lastVolumeValue,
-              candlesToConsider : _candlesToConsider,
-              parameters : nbPeriodsFrom + ', ' + nbPeriodsTill + ', ' + threshold
-            })
-          }
-
+          // algoPumpResult = {}
         } else {
-          console.log("Algo Pump Error : no body.result".error);
-          return reject ({
-            error : true,
-            message : 'No body.result'
-          })
+          console.log("getFiveMinCandles() - no body recieved for %s".error, market.toUpperCase());
+          var r = algoPumpResult.results[market];
+          r.isWorking = false;
+          r.hasErrored = true;
+          r.notProcessedBecause = 'getFiveMinCandles() - no body recieved';
+          reject();
         }
       }
     })
   })
 }
 
+// WIP            WIP           WIP         WIP         WIP         WIP         WIP
+function getOneMinCandles(market, lastCandle) {
+  console.log('== Getting 1 min Candles for %s', market.toUpperCase());
+  return new Promise((resolve, reject) => {
+    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + market
+      +'&tickInterval=' + "oneMin" + '&_=1500915289433',
+    (err, response, body) => {
+      if (err) {
+        console.log('Error requesting oneMin Candles for %s'.error, market);
+        console.log(err);
+        return reject(err);
+      }
+      if (body) {
+        var body = JSON.parse(body);
+        if (body.result && body.result.length !== 0) {
+          // Ne traiter que les candles postérieures à la dernière candle de 5 min
+          console.log("   1 min candles recieved for %s".info, market);
+
+          var lastFiveMinCandleDate = new Date(lastCandle.T);
+          var lastFiveMinCandleDateMin = Number(lastFiveMinCandleDate.toString().slice(19,21)) + 5;
+          console.log('   Last 5min Candle is %s min'.result, lastFiveMinCandleDateMin);
+
+          var nowDate = new Date();
+          nowDate.setHours(lastFiveMinCandleDate.getHours()); // mettre sur le même fuseau horaire USELESS ???
+          var nowDateMin = Number(nowDate.toString().slice(19,21));
+          console.log('   Now is %s min'.result, nowDateMin);
+
+          var diff = nowDateMin - lastFiveMinCandleDateMin;
+          console.log("   Diff is %s".result, diff);
+
+          // Récupère les #diff dernières oneMin Candles
+          var oneMinCandlesToConsider;
+          if (diff <= 0) {
+            oneMinCandlesToConsider = [];
+            console.log("   La dernière fiveMinCandle comprend bien now. Pas besoin d'extrapolation sur les oneMinCandles".result);
+            // TODO  ETUDE DE LA DERNIERE 5MINCANDLE POUR EVITER FAUX POSITIFS
+          } else if (diff > 0) {
+            oneMinCandlesToConsider = body.result.slice(-diff);               // To change into filter
+            console.log("== Etude des %s dernières oneMinCandles...", diff);
+            // TODO ETUDE DES CANDLES ONE MIN
+          }
+          console.log(oneMinCandlesToConsider);
+        } else {
+          console.log("getOneMinCandles() - no body recieved for %s".error, market.toUpperCase());
+          reject();
+        }
+      }
+    })
+  })
+}
+
+// DONE ========================================================================
+function calculateFiveMinData (market, candles) { // Variance = STD en vrai
+
+  console.log('== CalculateFiveMinData() launched based on %s candles for %s', candles.length, market.toUpperCase());
+  var candlesVolumes = candles.map(a => a.BV);
+  // Calculate mean
+  var candlesVolumeMean = mathjs.mean(candlesVolumes);
+  console.log("   Mean is %s".result, candlesVolumeMean);
+  // Calculate Standard Deviation
+  var candlesVolumeVariance = mathjs.std(candlesVolumes);
+  console.log("   Variance is %s".result, candlesVolumeVariance);
+  // STD / AVG UTILE ?
+  var normalizedVariance = candlesVolumeVariance / candlesVolumeMean;
+  console.log("   Normalized var is %s".result, normalizedVariance);
+
+  // Check if continious
+  var isDiscontinious = 0;
+  var candlesTimes = candles.map(a => new Date(a.T));
+  // console.log("Attention, les times ont perdu 2 heures dans la conv String->Date".info)
+  //console.log(candlesTimes);
+  for (var _i = 0; _i < candlesTimes.length-1; _i++) {
+    //console.log('Time between (300000)', candlesTimes[_i+1] - candlesTimes[_i])
+    if (candlesTimes[_i+1] - candlesTimes[_i] !== 300000) {
+      //console.log('returning false')
+      isDiscontinious++;
+    }
+  }
+  console.log("   has been Discontinious %s times".result, isDiscontinious);
+
+  // check if lastCandleIsPositive
+  var lastCandleIsPositive = candles[candles.length-1].C - candles[candles.length-1].O > 0;
+  console.log("   lastCandleIsPositive : %s".result, lastCandleIsPositive);
+
+  // Update algoPumpResult
+  var r = algoPumpResult.results[market];
+  r.calculatedData = {
+    meanVolume : candlesVolumeMean,
+    varianceVolume : candlesVolumeVariance,
+    normVarianceVolume : normalizedVariance,
+    nbOfDiscoutinuousFiveMin : isDiscontinious,
+    lastOnMeanRatio : r.rawData.lastFiveMinCandleVolume / candlesVolumeMean,
+    lastFiveMinCandleIsPositive : lastCandleIsPositive
+  }
+
+}
 
 //==============================================================================
 //---------------------- ALGO PUMP SPECIFIC FUNCTIONS --------------------------
 
-// On boot => constitue la liste des currencies
-getAllMarketsName(algoPumpOptions.currencyFilter)
-  .then(
-    console.log("All Markets recieved".success)
-  )
 
-// INPUT ### Récupère toutes les monnaies et en fait un Array
-  // currencyFilter = 'BTC' ou 'ETH' ou 'USDT' pour sélectionner seulement les bases BTC ou ETH
+// Prépare algoPumpResult avec tous les markets
 var allCurrencyArray = [];
 function getAllMarketsName (currencyFilter) {
   return new Promise((resolve, reject) => {
     request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
       if (err) {
-        console.log('Pb getting all markets name'.error);
+        console.log('getAllMarketsName Fct error'.error);
         return reject(err);
       }
       // Parse le resultat en JSON
@@ -213,61 +319,60 @@ function getAllMarketsName (currencyFilter) {
       if (currencyFilter) {
         allCurrencyArray = allCurrencyArray.filter(s => s.substring(0,3) == currencyFilter);
       }
-      console.log('untreated array is %s long'.important, allCurrencyArray.length);
-      //console.log(allCurrencyArray);
-      return resolve(allCurrencyArray);
+      console.log('== getAllMarketsName() completed : %s markets'.success, allCurrencyArray.length);
+
+      // Place les markets dans algoPumpResult
+      for (var _i in allCurrencyArray) {
+        algoPumpResult.results[allCurrencyArray[_i]] = {};
+      }
+      console.log("allCurrencyArray is in algoPumpResult".info);
+      return resolve();
     })
   })
 }
-// OUTPUT ### [ 'BTC-LTC',...]
 
-// Met à jour les infos les résultats des calculs de l'AlgoPump
-function refreshAlgoPumpState (a) {
-  // console.log("algoPumpState is".info);
-  // console.log(algoPumpState);
-  // console.log('refreshing algoPumpState'.info);
-  var _index = algoPumpState.findIndex(_r => _r.market == a.market);
-  // console.log('_index is ' + _index);
+//==============================================================================
+//------------------------- TXT MANAGEMENT API ---------------------------------
 
-  // si présent => update
-  if (_index > -1 ) {
-    // console.log("Présent de algoPumpState".important);
-    algoPumpState[_index] = a;
-  }
-  else { // sinon ajouter
-    // console.log("Absent dans algoPumpState".important);
-    algoPumpState.push(a);
-  }
-  // console.log('algoPumpState is'.success);
-  // console.log(algoPumpState);
+// Initie les valeurs d'options
+function ReadAlgoPumpOptionsTxt() {
+  return new Promise ((resolve, reject) => {
+    fs.readFile('./algoPumpOptions.txt', 'utf8', (err, data) => {
+      if (err) {
+        console.log("Error reading algoPumpOptions.txt".error);
+        return reject(err);
+      }
+      console.log('== algoPumpOptions.txt has been read'.success);
+      data = JSON.parse(data);
+      for (var _i in data) {
+        algoPumpOptions[_i] = data[_i];
+      }
+      resolve();
+    });
+  })
 }
 
-// Scan toutes les monnaies puis les analyse puis refresh les infos
-function launchAllAlgoPump () {
-  for (var _i in allCurrencyArray) {
-    analyseIfPumped(allCurrencyArray[_i], algoPumpOptions.tickInterval,
-      algoPumpOptions.nbPeriodsFrom, algoPumpOptions.nbPeriodsTill,
-      algoPumpOptions.threshold, algoPumpOptions.dateOfPump)
-      .then(res => {
-        // console.log('result is'.success);
-        // console.log(res);
-        refreshAlgoPumpState(res);
-      })
-      .catch(err => console.log(err))
-  }
+// Met à jour le fichier
+function updateAlgoPumpOptionsTxt(a) {
+  fs.writeFile("./algoPumpOptions.txt", JSON.stringify(a, null, "\t"), function(err) {
+    if(err) {
+        return console.log(err);
+    }
+    console.log("algoPumpOptions.txt has been updated".success);
+});
 }
+
 
 
 //==============================================================================
 //---------------------- MY API SHIT GOES HERE ---------------------------------
 
 app.get('/api/changeDateOfPump/:dateOfPump', (req, res) => {
-  console.log("changing dateOfPump".important);
+    console.log("changing dateOfPump".important);
   algoPumpOptions.dateOfPump = req.params.dateOfPump;
   updateAlgoPumpOptionsTxt(algoPumpOptions);
-  launchAllAlgoPump();
-  console.log("OPTIONS ARE".important);
-  console.log('dateOfPump: ' + algoPumpOptions.dateOfPump);
+    console.log("OPTIONS ARE".important);
+    console.log('dateOfPump: ' + algoPumpOptions.dateOfPump);
   res.json({message : 'done'});
 })
 app.get('/api/getDateOfPump', (req, res) => {
@@ -361,7 +466,7 @@ app.get('/api/getOrderHistory/:currency', (req, res) => {
       return console.error("Error fetching OrderHistory for %s :".error, _currency + JSON.stringify(err.message, null, 2));
     }
     if (data.result.length > 15) {
-      console.log(data.result.slice(0,15));
+      //console.log(data.result.slice(0,15));
       return res.json( data.result.slice(0,15) );
     } else {
       res.json(data.result);
@@ -386,10 +491,10 @@ app.get('/api/getBitcoinInfo', (req, res) => {
 app.get('/api/getWalletArchive/:selectedDateForCharts', (req, res) => {
   var _timeSelected = req.params.selectedDateForCharts;
   var _now = new Date().getTime()/1000; // Définit maintenant en timestamp
-  var _timeArray = ['1h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
+  var _timeArray = ['2h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
   var _timeIndex = _timeArray.indexOf(_timeSelected); //Dis à quelle position est le temps demandé
   var _delta=[
-    1,
+    2,
     6,
     12,
     24,
@@ -436,10 +541,8 @@ app.get('/api/getCurrencyCours/:currency', (req, res) => {
 
 // Récupère logo et nom de la currency
 app.get('/getLogoAndFullName/:currency', (req, res) => {
-  console.log('getLogoAndFullName launched');
   getLogoAndFullName(req.params.currency)
     .then(_r => {
-      console.log(_r);
       res.json({
         marketCurrencyLong : _r.MarketCurrencyLong,
         logoUrl : _r.LogoUrl
@@ -453,7 +556,6 @@ app.get('/getLogoAndFullName/:currency', (req, res) => {
 // Récupère logo et nom de la currency
 function getLogoAndFullName (_curr) {
   var _curr = _curr.toUpperCase();
-  console.log(_curr);
   return new Promise ((resolve, reject) => {
     request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
       if (err) {
@@ -468,7 +570,7 @@ function getLogoAndFullName (_curr) {
         return console.log('getLogoAndFullName no match'.error);
       }
       if (_s.length > 0) {
-        console.log('getLogoAndFullName : %s matches', _s.length);
+        // console.log('getLogoAndFullName : %s matches', _s.length);
         return resolve(_s[0]);
       }
     })
@@ -684,20 +786,19 @@ function getCurrencyCandles(_curr, _selectedDate) {
 
     var _now = new Date().getTime()/1000; // Définit maintenant en timestamp
 
-    var _timeArray = ['1h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m', '1x5min' ];
+    var _timeArray = ['2h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
     var _timeIndex = _timeArray.indexOf(_timeSelected); //Dis à quelle position est le temps demandé
 
     var _delta = [
-      1,
+      4,
       6,
-      12,
-      24,
-      72,
-      168,
-      720,
-      2160,
-      4320,
-      2
+      14,
+      26,
+      74,
+      170,
+      722,
+      2162,
+      4322
     ]; // Définit sur cb d'heures je veux les données
 
     var _density = [
@@ -709,11 +810,10 @@ function getCurrencyCandles(_curr, _selectedDate) {
       "hour",
       "day",
       "day",
-      "day",
-      'fiveMin'
+      "day"
     ]; // Définit l'intervalle (fréquence) des candles demandées
 
-    _now = _now-(_delta[_timeIndex]*60*60+3600); // _now = seuil temporel après lequel garder les valeurs
+    _now = _now-(_delta[_timeIndex]*60*60); // _now = seuil temporel après lequel garder les valeurs
 
     var _tickInterval = _density[_timeIndex];
     var _market;
@@ -855,7 +955,7 @@ var db = mongoose.connection;
 
 db.on('error', console.error.bind(console, 'connection error:'));
 db.once('open', function() {
-  console.log('Successfully connected to Crypto Database'.success);
+  console.log('== Successfully connected to Crypto Database'.success);
 });
 
 // TODO: créer le schéma
@@ -867,15 +967,10 @@ var WalletArchive = mongoose.model('WalletArchive', {
   coursBTC : Number
 });
 
-var localState = {
-  wallet : []
-}
-
 
 
 //==============================================================================
 //---------------------- MY SERVER FUNCTIONS -----------------------------------
-
 
 // Archivage du portefeuille
 function archiveCurrentWalletPerf() {
@@ -898,6 +993,9 @@ function archiveCurrentWalletPerf() {
 ontime({
     cycle: [ '00:00', '30:00' ]
   }, function (ot) {
+      if (!isToBeDeployed) {
+        return console.log('Pas de sauvegarde wallet : Code en développement');
+      }
       archiveCurrentWalletPerf();
       ot.done()
       return
@@ -922,4 +1020,4 @@ app.get('*', (req, res) => {
 const port = process.env.PORT || 8000;
 app.listen(port);
 
-console.log('Express server listening on %s'.success, port);
+console.log('Express server listening on %s'.info, port);

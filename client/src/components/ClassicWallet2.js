@@ -18,7 +18,7 @@ import RefreshIcon from 'react-icons/lib/md/refresh';
 
 
 
-const chartDateButton = ['1h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
+const chartDateButton = ['2h', '6h', '12h', '1j', '3j', '7j', '1m', '3m', '6m'];
 
 class WalletLineChart extends Component {
 

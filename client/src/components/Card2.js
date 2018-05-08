@@ -13,7 +13,7 @@ import IndicatorIcon from 'react-icons/lib/md/brightness-1';
 
 
 class OrderDiv extends Component {
-  
+
   renderOrderList = () => {
     return this.props.data.map(_data => (
       <tr key={_data.OrderUuid} className={_data.OrderType.slice(6) == 'BUY' ? 'buyRow' : 'sellRow'}>
@@ -351,7 +351,7 @@ class Card extends Component {
     if (this.state.orderHistory && this.state.cours) {
       var _lastBuyOrder = this.state.orderHistory.filter(_order => _order.OrderType === 'LIMIT_BUY');
       if (_lastBuyOrder[0]) {
-        var _delta = (((this.state.cours-_lastBuyOrder[0].PricePerUnit)/this.state.cours)*100).toFixed(2);
+        var _delta = (((this.state.cours-_lastBuyOrder[0].PricePerUnit)/_lastBuyOrder[0].PricePerUnit)*100).toFixed(2);
         return (
           <p style={{color:"white", marginRight:'15px'}}>
             Dernier achat à {_lastBuyOrder[0].PricePerUnit} BTC ({_delta} %)

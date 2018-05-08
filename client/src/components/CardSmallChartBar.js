@@ -38,6 +38,7 @@ class CardSmallChartBar extends Component {
         this.setState({
           res
         })
+        console.log(this.state)
       })
   }
 
