@@ -1,251 +1,240 @@
 import React, { Component } from 'react';
+import Card2 from './Card2.js';
+
+// REACT TABLE
+import ReactTable from "react-table";
+import 'react-table/react-table.css';
+
+// MATERIAL UI
+import CircularProgress from 'material-ui/CircularProgress';
+import FlatButton from 'material-ui/FlatButton';
+import TextField from 'material-ui/TextField';
+import Badge from 'material-ui/Badge';
 
 import './PumpDisplay.css';
 
+// SOCKET
+import openSocket from 'socket.io-client';
+const  socket = openSocket('http://localhost:8080');
 
 class PumpDisplay extends Component {
   state = {
-    results : [],
-    thresholdFilter : 5,
-    minVolume : 0.5,
+    algoPumpResult : null,
     onlyPosCandles : true,
-    maxOldVolumes : 0.3,
-    minOldVolumes : 0.05,
-    dateOfPump : ""
+    timeMachineDateInput : '2019-03-09T23:20:00',
+    timeMachineIsEnabled : false
   }
 
   componentDidMount() {
     this.getPumpAlgoResults();
-    this.getDateOfPump();
-  }
-
-  getDateOfPump = () => {
-    fetch('/api/getDateOfPump')
-      .then(res => res.json())
-      .then(res => this.setState({ dateOfPump : res.dateOfPump }))
+    socket.on('algoPumpFeedback', feedback => {
+      console.log('OMG')
+      var r = this.state.algoPumpResult;
+      r.metadata.numberOfErrors = feedback.numberOfErrors;
+      r.metadata.numberOfSuccess = feedback.numberOfSuccess;
+      this.setState({
+        algoPumpResult : r
+      })
+    })
   }
 
   getPumpAlgoResults = () => {
-    fetch('/api/getPumpAlgoResults')
+    fetch('/api/getAlgoPumpResult')
       .then(res => res.json())
-      .then(res => this.setState({ results : res }))
+      .then(res =>
+        {
+          this.setState({ algoPumpResult : res });
+          console.log(this.state)
+        })
+    // socket.on('timer', algoPumpResult => this.setState( {algoPumpResult} ));
+    // socket.emit('suscribeToAlgoPumpTicker', 1000);
   }
 
-  renderResults = () => {
-    console.log("launched " + this.state.results.length)
-
-    // Select quand le dernier volume est au dessus de X fois la moyenne des anciens
-    var _e = this.state.results.filter(e => e.lastVolume > e.meanVolume*this.state.thresholdFilter);
-
-    // Select quand le volume moyen est inf au max indiqué
-    _e = _e.filter(e => e.meanVolume < this.state.maxOldVolumes);
-    // Select quand les mean volumes sont sup à un min
-    _e = _e.filter(e => e.meanVolume > this.state.minOldVolumes);
-
-
-    // Select quand le dernier volume est supérieur à un min indiqué
-    _e = _e.filter(e => e.lastVolume > this.state.minVolume);
-
-    if (this.state.onlyPosCandles) {
-      _e = _e.filter(f => f.lastCandleIsPositive == true);
-      console.log(_e);
-    }
-    return _e.map(_f => (
-      <tr key={_f.updateDate}>
-        <td>{_f.market}</td>
-        <td>{_f.meanVolume}</td>
-        <td>{_f.lastVolume}</td>
-        <td>{_f.updateDate}</td>
-        <td>{_f.lastCandleIsPositive ? "POS" : "NEG"}</td>
-        <td>{_f.candlesToConsider[_f.candlesToConsider.length-1].T}</td>
-      </tr>
-    ))
-  }
-
-  // Handling form
-  handleChangeThreshold = (e) => {
-    this.setState({
-      thresholdFilter : Number(e.target.value)
-    })
-  }
-  handleChangeMinVolume = (e) => {
-    this.setState({
-      minVolume : Number(e.target.value)
-    })
-  }
   handleChangeOnlyPosCandles = () => {
-    console.log("clicked");
     this.setState({
       onlyPosCandles : !this.state.onlyPosCandles
-    })
+    });
   }
-  handleChangeMaxOldVolume = (e) => {
+
+  handleInputChange = (e) => {
     this.setState({
-      maxOldVolumes : Number(e.target.value)
+      timeMachineDateInput : e.target.value
     })
   }
-  handleChangeMinOldVolume = (e) => {
+
+  handleTimeMachineCheckChange = () => {
     this.setState({
-      minOldVolumes : Number(e.target.value)
-    })
+      timeMachineIsEnabled : !this.state.timeMachineIsEnabled
+    });
   }
-  handleChangeDateOfPump = (e) => {
-    this.setState({
-      dateOfPump : (e.target.value)
-    })
-  }
-  handleDateBtn = () => {
-    fetch('/api/changeDateOfPump/' + this.state.dateOfPump)
-      .then(res => res.json())
-      .then(res => {
-        console.log(res.message);
+
+  runAlgoPump = () => {
+    fetch('/api/runAlgoPump/' + (this.state.timeMachineIsEnabled === true ? this.state.timeMachineDateInput : "false"))
+    .then(res => res.json())
+    .then(res =>
+      {
+        this.setState({ algoPumpResult : res });
+        console.log(this.state)
       })
+    .catch(err => console.log(err))
   }
 
   render() {
-    if (this.state.results.length > 0) {
+    if (this.state.algoPumpResult == null) {
+      return <CircularProgress />
+    } else {
+      var data = this.state.algoPumpResult.results.filter(a => a.calculatedData);
+      if (this.state.onlyPosCandles) {
+        data = data.filter(a => a.calculatedData.lastFiveMinCandleIsPositive === true);
+      }
+      const columns = [{
+        Header : 'Market',
+        accessor : 'market'
+      }, {
+        id : 'lastOnMeanRatio',
+        Header : 'Ratio',
+        accessor : d => d.calculatedData.lastOnMeanRatio,
+        Cell: row => (
+          <span>
+            <span style={{
+              color: row.value > 1 ? '#57d500' : '#ff2e00',
+              transition: 'all .3s ease'
+            }}>
+              &#x25cf;
+            </span> {
+              Math.round(row.value*100)/100
+            }
+          </span>
+        )
+      }, {
+        id : 'lastFiveMinCandleIsPositive',
+        Header : 'Positif',
+        accessor : d => d.calculatedData.lastFiveMinCandleIsPositive,
+        Cell: row => (
+          <span>
+            <span style={{
+              color: row.value === true ? '#57d500' : '#ff2e00',
+              transition: 'all .3s ease'
+            }}>
+              &#x25cf;
+            </span> {
+              row.value === true ? 'Oui' : 'Non'
+            }
+          </span>
+        )
+      }, {
+        id : 'meanVolume',
+        Header : 'Volume Moyen',
+        accessor : d => d.calculatedData.meanVolume,
+        Cell: props => Math.round(props.value*100)/100
+      }, {
+        id : 'lastVolume',
+        Header : 'Dernier Volume',
+        accessor : d => d.rawData.lastFiveMinCandleVolume,
+        Cell: props => Math.round(props.value*100)/100
+      }, {
+        id : 'varianceVolume',
+        Header : 'STD',
+        accessor : d => d.calculatedData.varianceVolume,
+        Cell: props => Math.round(props.value*100)/100
+      }, {
+        id : 'normVarianceVolume',
+        Header : 'Normalized STD',
+        accessor : d => d.calculatedData.normVarianceVolume,
+        Cell: props => Math.round(props.value*100)/100
+      }, {
+        id : 'nbOfDiscoutinuousFiveMin',
+        Header : 'Discontinu',
+        accessor : d => d.calculatedData.nbOfDiscoutinuousFiveMin,
+        Cell: props => Math.round(props.value*100)/100
+      }];
+
       return (
         <div className="container">
-          <div className='settingsCard'>
-            <h5>Paramètres de selection</h5>
+          <div className='settingsCard' style={{marginBottom : '12px'}}>
+            <h5>AlgoPump</h5>
+            <div style={{display: 'flex', flexDirection:'row', justifyContent : 'space-between'}}>
+              <div className="form-check">
+                <input type="checkbox" className="form-check-input" id="exampleCheck1"
+                onChange={this.handleChangeOnlyPosCandles} checked={this.state.onlyPosCandles}/>
+                <label className="form-check-label" htmlFor="exampleCheck1">
+                  Seulement les candles montantes
+                </label>
+              </div>
+              <p>
+                Dernière analyse à :
+                <Badge
+                  badgeContent={this.state.algoPumpResult.metadata.iterations}
+                  primary={true} >
+                  {this.state.algoPumpResult.metadata.dateOfLastLaunch.slice(11,-8)}
+                </Badge>
+              </p>
+            </div>
 
-            <div className='settingsCardSection'>
-
-              <div className='settingsCardSubsection'>
-                <div className="form-group">
-                  <label htmlFor="thresholdInput">Seuil de positivité</label>
-                  <input type="Number" className="form-control" id='thresholdInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.thresholdFilter} onChange={this.handleChangeThreshold}/>
+            <div style={{display: 'flex', flexDirection:'row', justifyContent : 'space-between', marginTop : '20px'}}>
+              <div style={{display: 'flex', flexDirection:'row', justifyContent : 'space-between', alignItems: 'center'}}>
+                <TextField
+                  id="timeMachineDateInput"
+                  value={this.state.timeMachineDateInput}
+                  onChange={this.handleInputChange}
+                />
+                <div className="form-check" style={{ marginLeft : '10px'}}>
+                  <input type="checkbox" className="form-check-input" id="exampleCheck1"
+                    onChange={this.handleTimeMachineCheckChange} checked={this.state.timeMachineIsEnabled}/>
+                    <label className="form-check-label" htmlFor="exampleCheck1">
+                      TimeMachine
+                    </label>
+                  </div>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="minVolumeInput">Dernier volume minimum</label>
-                  <input type="Number" className="form-control" id='minVolumeInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.minVolume} onChange={this.handleChangeMinVolume}/>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="dateOfPump">Date du Pump</label>
-                  <input type="text" className="form-control" id='dateOfPump'
-                    value={this.state.dateOfPump} onChange={this.handleChangeDateOfPump}/>
-                </div>
+                <FlatButton label="run Algo" primary={true} onClick={this.runAlgoPump}/>
               </div>
 
-              <div className='settingsCardSubsection'>
-
-                <div className="form-group">
-                  <label htmlFor="maxVolumesInput">Mean Volume maximum</label>
-                  <input type="Number" className="form-control" id='maxVolumesInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.maxOldVolumes} onChange={this.handleChangeMaxOldVolume}/>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="minVolumesInput">Mean Volume minimum</label>
-                  <input type="Number" className="form-control" id='minVolumesInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.minOldVolumes} onChange={this.handleChangeMinOldVolume}/>
-                </div>
-
-                <div className="form-check">
-                  <input type="checkbox" className="form-check-input" id="exampleCheck1"
-                  onChange={this.handleChangeOnlyPosCandles} checked={this.state.onlyPosCandles}/>
-                  <label className="form-check-label" htmlFor="exampleCheck1">
-                    Seulement les candles montantes
-                  </label>
-                </div>
-
-                <button type="button" className='btn btn-success'
-                 onClick={this.handleDateBtn}>
-                  Actualiser date
-                </button>
+              <div style={{
+                backgroundColor : "#F5F5F5",
+                height : '5px',
+                width : '100%',
+                display: 'flex'
+              }}>
+                <div style={{
+                  backgroundColor: '#A5D6A7',
+                  height: '100%',
+                  width : Math.round(this.state.algoPumpResult.metadata.numberOfSuccess*100/this.state.algoPumpResult.metadata.numberOfMarkets) + '%'
+                }}></div>
+                <div style={{
+                  backgroundColor: '#EF9A9A',
+                  height: '100%',
+                  float : 'right',
+                  width : Math.round(this.state.algoPumpResult.metadata.numberOfErrors*100/this.state.algoPumpResult.metadata.numberOfMarkets) + '%'
+                }}></div>
               </div>
 
             </div>
-          </div>
 
-          <p>XX marchés sont positifs</p>
-          <table className='table'>
-            <thead>
-              <tr>
-                <th>Market</th>
-                <th>Mean Volume</th>
-                <th>Last Volume</th>
-                <th>Last update</th>
-                <th>POS ?</th>
-                <th>Dernière candle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {this.renderResults()}
-            </tbody>
-          </table>
-        </div>
-      );
-    } else {
-      return (
-        <div className='container'>
-          <div className='settingsCard'>
-            <h5>Paramètres de selection</h5>
-
-            <div className='settingsCardSection'>
-
-              <div className='settingsCardSubsection'>
-                <div className="form-group">
-                  <label htmlFor="thresholdInput">Seuil de positivité</label>
-                  <input type="Number" className="form-control" id='thresholdInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.thresholdFilter} onChange={this.handleChangeThreshold}/>
+          <ReactTable
+            data = {data}
+            columns = {columns}
+            defaultPageSize={200}
+            className="-striped -highlight"
+            defaultSorted={[
+              {
+                id: "lastOnMeanRatio",
+                desc: true
+              }
+            ]}
+            SubComponent={row => {
+              return (
+                <div >
+                  <Card2
+                    key={row.row.market.slice(4)}
+                    balance = {null}
+                    currency={row.row.market.slice(4)}
+                    selectedDateForCharts="2h"
+                    sendEqBtcToParent={null}>
+                  </Card2>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="minVolumeInput">Dernier volume minimum</label>
-                  <input type="Number" className="form-control" id='minVolumeInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.minVolume} onChange={this.handleChangeMinVolume}/>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="dateOfPump">Date du Pump</label>
-                  <input type="text" className="form-control" id='dateOfPump'
-                    value={this.state.dateOfPump} onChange={this.handleChangeDateOfPump}/>
-                </div>
-              </div>
-
-              <div className='settingsCardSubsection'>
-
-                <div className="form-group">
-                  <label htmlFor="maxVolumesInput">Mean Volume maximum</label>
-                  <input type="Number" className="form-control" id='maxVolumesInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.maxOldVolumes} onChange={this.handleChangeMaxOldVolume}/>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="minVolumesInput">Mean Volume minimum</label>
-                  <input type="Number" className="form-control" id='minVolumesInput'
-                    placeholder='Threshold Value Coefficient'
-                    value={this.state.minOldVolumes} onChange={this.handleChangeMinOldVolume}/>
-                </div>
-
-                <div className="form-check">
-                  <input type="checkbox" className="form-check-input" id="exampleCheck1"
-                  onChange={this.handleChangeOnlyPosCandles} checked={this.state.onlyPosCandles}/>
-                  <label className="form-check-label" htmlFor="exampleCheck1">
-                    Seulement les candles montantes
-                  </label>
-                </div>
-
-                <button type="button" className='btn btn-success'
-                 onClick={this.handleDateBtn}>
-                  Actualiser date
-                </button>
-              </div>
-
-            </div>
-          </div>
+              );
+            }}
+          />
         </div>
       )
     }

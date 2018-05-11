@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 import './App.css';
 
 import TopMainBar from './components/TopMainBar.js';
@@ -9,7 +10,7 @@ import WipDisplay from './components/WipDisplay.js';
 
 class App extends Component {
   state = {
-    displayed : "ClassicWallet2",
+    displayed : "PumpDisplay",
     // displayOrderDiv : false,
   }
 
@@ -36,7 +37,7 @@ class App extends Component {
     }
 
     return (
-      <div>
+      <MuiThemeProvider>
         <TopMainBar>
           <button className="btn labelBtn" name="ClassicWallet2" onClick={this.handleClick}>
             Classic Wallet
@@ -52,7 +53,7 @@ class App extends Component {
           {_displayed}
         </div>
 
-      </div>
+      </MuiThemeProvider>
     );
   }
 }
