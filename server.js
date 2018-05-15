@@ -37,9 +37,6 @@ colors.setTheme({
 
 var isOnlyWorkingVersion = true;
 
-var algoPumpOptions = {
-};
-
 var algoPumpResult = {
   metadata : {
     dateOfLastLaunch : null,
@@ -101,7 +98,7 @@ var algoPumpResult = {
 ReadAlgoPumpOptionsTxt()
   .then(() => {
     //constitue la liste des currencies
-    getAllMarketsName(algoPumpOptions.currencyFilter)
+    getAllMarketsName(algoPumpResult.algoParameters.currencyFilter)
       .then(() => {
         //getFiveMinCandles('BTC-EMC2', algoPumpOptions);
         algoPumpResult.metadata.iterations = 0;
@@ -133,10 +130,12 @@ function launchPumpAnalyse (isOldPump) {
   algoPumpResult.metadata.numberOfSuccess = 0;
   algoPumpResult.metadata.numberOfMarkets = allCurrencyArray.length;
 
+  // allCurrencyArray = ['BTC-LTC'];
+
   // Launch Analysis
   for (var _i in allCurrencyArray) {
     getFiveMinCandles(allCurrencyArray[_i],
-      algoPumpOptions, isOldPump)
+      algoPumpResult.algoParameters, isOldPump)
       //  .then((candlesToConsider) => {
     .then((_object) => {
         // Lance analyse des candles de 5 min
@@ -172,12 +171,13 @@ function getFiveMinCandles (market, options, isOldPump) {
           // console.log("   5 min candles recieved for %s".info, market);
 
           var candlesUnsliced = body.result;
-          if (isOldPump) {                                                  // TODO: check if working
-            candlesUnsliced = candlesUnsliced.filter(a => a.T < options.dateOfPump);
-            console.log("DATEOFPUMPACTIVATED ==== ==== ==== ==== ====".operations);
-            console.log("date of pump is " + options.dateOfPump);
-            console.log(body.result.slice(-3));
-            console.log(candlesUnsliced.slice(-3));
+
+          if (isOldPump) {
+            candlesUnsliced = candlesUnsliced.filter(a => a.T <= options.dateOfPump);
+            // console.log("DATEOFPUMPACTIVATED ==== ==== ==== ==== ====".operations);
+            // console.log("date of pump is " + options.dateOfPump);
+            // console.log(body.result.slice(-1));
+            // console.log(candlesUnsliced.slice(-1));
           }
           // Ne garder que les X dernières candles
           var candlesToConsider = [];
@@ -192,13 +192,13 @@ function getFiveMinCandles (market, options, isOldPump) {
             market : market,
             rawData : {
               fiveMinCandles : candlesToConsider,
-              lastFiveMinCandleVolume : candlesToConsider[candlesToConsider.length-1].BV
+              lastFiveMinCandleVolume : candlesToConsider[candlesToConsider.length-1] ? candlesToConsider[candlesToConsider.length-1].BV : 0
             }
           };
           resolve(_object);
 
         } else {
-          reject("getFiveMinCandles() - no body recieved for " + market.toUpperCase());
+          reject("getFiveMinCandles() - no body recieved for " + market.toUpperCase() + body);
         }
       }
     })
@@ -308,13 +308,17 @@ var progressError = 0;
 var feedbackTimeout;
 // Push la réponse pour un marché dans results
 function updateAlgoPumpResult(data) {
+  algoPumpResult.results = algoPumpResult.results.filter(a => a.market !== data.market);
   algoPumpResult.results.push(data);
+
+
   progress++;
   console.log(progress + '/' + Number(allCurrencyArray.length-progressError) + ' (%s errors)', progressError);
 
   algoPumpResult.metadata.numberOfErrors = progressError;
   algoPumpResult.metadata.numberOfSuccess = progress;
 
+  // Envoie l'avancement au client
   if (progress % 25 == 0) {
     io.emit('algoPumpFeedback', algoPumpResult.metadata);
   } else {
@@ -326,11 +330,10 @@ function updateAlgoPumpResult(data) {
 }
 
 // Envoie le feedback de l'avancement au client
-
 app.get('/api/runAlgoPump/:dateOfPump', (req,res) => {
   if (req.params.dateOfPump !== 'false') {
-    algoPumpOptions.dateOfPump = req.params.dateOfPump;
-    updateAlgoPumpOptionsTxt(algoPumpOptions);
+    algoPumpResult.algoParameters.dateOfPump = req.params.dateOfPump;
+    updateAlgoPumpOptionsTxt(algoPumpResult.algoParameters);
     console.log("Date of Pump has been updated".important);
     launchPumpAnalyse(true);
   } else {
@@ -389,17 +392,17 @@ function sendAlgoPumpResult () {
 //==============================================================================
 //---------------------- MY API SHIT GOES HERE ---------------------------------
 
-app.get('/api/changeDateOfPump/:dateOfPump', (req, res) => {    //            DEPRECATED
+app.get('/api/changeDateOfPump/:dateOfPump', (req, res) => {
     console.log("changing dateOfPump".important);
-  algoPumpOptions.dateOfPump = req.params.dateOfPump;
-  updateAlgoPumpOptionsTxt(algoPumpOptions);
+  algoPumpResult.algoParameters.dateOfPump = req.params.dateOfPump;
+  updateAlgoPumpOptionsTxt(algoPumpResult.algoParameters);
     console.log("OPTIONS ARE".important);
-    console.log('dateOfPump: ' + algoPumpOptions.dateOfPump);
+    console.log('dateOfPump: ' + algoPumpResult.algoParameters.dateOfPump);
   res.json({message : 'done'});
 })
 
-app.get('/api/getDateOfPump', (req, res) => {                             // DEPRECATED
-  res.json({dateOfPump : algoPumpOptions.dateOfPump});
+app.get('/api/getDateOfPump', (req, res) => {
+  res.json({dateOfPump : algoPumpResult.algoParameters.dateOfPump});
 })
 
 // Récupère les résutltats de l'algo Pump
@@ -1004,12 +1007,25 @@ function ReadAlgoPumpOptionsTxt() {
       console.log('== algoPumpOptions.txt has been read'.success);
       data = JSON.parse(data);
       for (var _i in data) {
-        algoPumpOptions[_i] = data[_i];
+        algoPumpResult.algoParameters[_i] = data[_i];
       }
       resolve();
     });
   })
 }
+
+// {
+// 	"dateOfPump": "2018-03-09T23:20:00",
+// 	"currencyFilter": "BTC",
+// 	"tickInterval": "oneMin",
+// 	"nbPeriodsFrom": 20,
+// 	"nbPeriodsTill": 0,
+// 	"threshold": 5,
+// 	"minVolume": 1.5,
+// 	"onlyPosCandles": true,
+// 	"maxOldVolumes": 1.5,
+// 	"minOldVolumes": 0.05
+// }
 
 // Met à jour le fichier
 function updateAlgoPumpOptionsTxt(a) {

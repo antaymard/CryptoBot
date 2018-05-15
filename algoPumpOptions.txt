@@ -1,12 +1,6 @@
 {
-	"dateOfPump": "2019-03-09T23:20:00",
+	"dateOfPump": "2018-05-05T23:20:00",
 	"currencyFilter": "BTC",
-	"tickInterval": "oneMin",
 	"nbPeriodsFrom": 20,
-	"nbPeriodsTill": 0,
-	"threshold": 5,
-	"minVolume": 1.5,
-	"onlyPosCandles": true,
-	"maxOldVolumes": 1.5,
-	"minOldVolumes": 0.05
+	"nbPeriodsTill": 0
 }

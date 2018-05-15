@@ -36,6 +36,13 @@ class PumpDisplay extends Component {
         algoPumpResult : r
       })
     })
+    this.getTimeMachineDate()
+  }
+
+  getTimeMachineDate = () => {
+    fetch('/api/getDateOfPump')
+      .then(res => res.json())
+      .then(res => this.setState({ timeMachineDateInput : res.dateOfPump }))
   }
 
   getPumpAlgoResults = () => {
@@ -133,10 +140,9 @@ class PumpDisplay extends Component {
         accessor : d => d.rawData.lastFiveMinCandleVolume,
         Cell: props => Math.round(props.value*100)/100
       }, {
-        id : 'varianceVolume',
-        Header : 'STD',
-        accessor : d => d.calculatedData.varianceVolume,
-        Cell: props => Math.round(props.value*100)/100
+        id : 'lastCandleTime',
+        Header : 'Time',
+        accessor : d => d.rawData.fiveMinCandles[d.rawData.fiveMinCandles.length-1].T.slice(11,-3),
       }, {
         id : 'normVarianceVolume',
         Header : 'Normalized STD',
@@ -171,7 +177,7 @@ class PumpDisplay extends Component {
               </p>
             </div>
 
-            <div style={{display: 'flex', flexDirection:'row', justifyContent : 'space-between', marginTop : '20px'}}>
+            <div style={{display: 'flex', flexDirection:'row', justifyContent : 'space-between', marginTop : '20px', alignItems: 'center'}}>
               <div style={{display: 'flex', flexDirection:'row', justifyContent : 'space-between', alignItems: 'center'}}>
                 <TextField
                   id="timeMachineDateInput"
@@ -186,7 +192,10 @@ class PumpDisplay extends Component {
                     </label>
                   </div>
                 </div>
-                <FlatButton label="run Algo" primary={true} onClick={this.runAlgoPump}/>
+                <div>
+                  <FlatButton label="run Algo" primary={true} onClick={this.runAlgoPump}/>
+                  <FlatButton label="refresh data" primary={true} onClick={this.getPumpAlgoResults}/>
+                </div>
               </div>
 
               <div style={{
@@ -198,12 +207,14 @@ class PumpDisplay extends Component {
                 <div style={{
                   backgroundColor: '#A5D6A7',
                   height: '100%',
+                  transition: 'all .3s ease',
                   width : Math.round(this.state.algoPumpResult.metadata.numberOfSuccess*100/this.state.algoPumpResult.metadata.numberOfMarkets) + '%'
                 }}></div>
                 <div style={{
                   backgroundColor: '#EF9A9A',
                   height: '100%',
                   float : 'right',
+                  transition: 'all .3s ease',
                   width : Math.round(this.state.algoPumpResult.metadata.numberOfErrors*100/this.state.algoPumpResult.metadata.numberOfMarkets) + '%'
                 }}></div>
               </div>
@@ -213,7 +224,7 @@ class PumpDisplay extends Component {
           <ReactTable
             data = {data}
             columns = {columns}
-            defaultPageSize={200}
+            defaultPageSize={10}
             className="-striped -highlight"
             defaultSorted={[
               {
