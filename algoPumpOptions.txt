@@ -1,6 +1,13 @@
 {
-	"dateOfPump": "2018-05-05T23:20:00",
+	"dateOfPump": "2018-05-14T09:20:00",
 	"currencyFilter": "BTC",
 	"nbPeriodsFrom": 20,
-	"nbPeriodsTill": 0
+	"nbPeriodsTill": 0,
+	"decisionTime" : 30000,
+	"scanFrequency" : 180000,
+
+	"lastOnMeanRatio" : 6,
+	"minLastVolume" : 5,
+	"maxMeanVolume" : 2,
+	"lastFiveMinCandleIsPositive" : true
 }

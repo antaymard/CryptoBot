@@ -226,6 +226,7 @@ class PumpDisplay extends Component {
             columns = {columns}
             defaultPageSize={10}
             className="-striped -highlight"
+            filterable
             defaultSorted={[
               {
                 id: "lastOnMeanRatio",

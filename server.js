@@ -16,6 +16,7 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 const util = require('util');
 
 const config = require('./config');
+var blacklist = require('./algoPumpBlacklist');
 
 // BITTREX CONFIG SHIT GOES HERE
 const bittrex = require('node-bittrex-api');
@@ -31,11 +32,16 @@ colors.setTheme({
     operations : ['bgCyan', 'black'],
     info : ["grey"],
     result : ['magenta']
-  })
+  });
 
 // GLOBAL VALUES ===============================================================
 
 var isOnlyWorkingVersion = true;
+
+// TODO : incorporer dans algoPumpResult
+var progress = 0;
+var progressError = 0;
+var feedbackTimeout;
 
 var algoPumpResult = {
   metadata : {
@@ -93,7 +99,12 @@ var algoPumpResult = {
   //   console.log( data );
   // }, true );
 
-// BOOTING SEQUENCE ======
+// bittrex.getmarketsummary( { market : 'BTC-LTC'}, function( data, err ) {
+  //   console.log( data );
+  // });
+
+
+// BOOTING SEQUENCE ============================================================
 
 ReadAlgoPumpOptionsTxt()
   .then(() => {
@@ -102,7 +113,7 @@ ReadAlgoPumpOptionsTxt()
       .then(() => {
         //getFiveMinCandles('BTC-EMC2', algoPumpOptions);
         algoPumpResult.metadata.iterations = 0;
-        launchPumpAnalyse(false);
+        launchPumpAnalyse(false); // Global launch (analyse toutes les monnaies)
       })
   })
   .catch(err => {
@@ -112,13 +123,10 @@ ReadAlgoPumpOptionsTxt()
 
 // TESTS =======================================================================
 
-// bittrex.getmarketsummary( { market : 'BTC-LTC'}, function( data, err ) {
-//   console.log( data );
-// });
 
-
+// Global launch (analyse toutes les markets)
 function launchPumpAnalyse (isOldPump) {
-  // Refresh algo metadata
+  // Set algo metadata for analyse start
   progress = 0;
   progressError = 0;
   testing = 0.
@@ -130,80 +138,43 @@ function launchPumpAnalyse (isOldPump) {
   algoPumpResult.metadata.numberOfSuccess = 0;
   algoPumpResult.metadata.numberOfMarkets = allCurrencyArray.length;
 
-  // allCurrencyArray = ['BTC-LTC'];
+  // allCurrencyArray = ['BTC-LTC'];  // Pour test sur une seule monnaie
 
+  // Lance le compte à rebours de 30 sec pour la prise de décision
+  setTimeout(() => takeDecision(), algoPumpResult.algoParameters.decisionTime);
+
+  var algoPromise = []; // Array contenant toutes les promises
   // Launch Analysis
   for (var _i in allCurrencyArray) {
-    getFiveMinCandles(allCurrencyArray[_i],
-      algoPumpResult.algoParameters, isOldPump)
-      //  .then((candlesToConsider) => {
-    .then((_object) => {
-        // Lance analyse des candles de 5 min
-        //  calculateFiveMinData(allCurrencyArray[_i], candlesToConsider);
-       calculateFiveMinData(_object);
-        //console.log(util.inspect(algoPumpResult, false, null))
-        return true;
-    })
-    .catch((err) => {
-      console.log("Error in launchPumpAnalyse()".error);
-      progressError ++;
-      return console.log(err)
-    })
+    algoPromise.push(analyse(allCurrencyArray[_i], isOldPump));
   }
-}
 
-// DONE ========================================================================
-function getFiveMinCandles (market, options, isOldPump) {
-  //console.log('== Getting 5 min Candles for %s', market.toUpperCase());
-  return new Promise((resolve, reject) => {
-    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + market
-      +'&tickInterval=' + "fiveMin" + '&_=1500915289433',
-    (err, response, body) => {
-      if (err) {
-        console.log('Error requesting fiveMin Candles for %s'.error, market);
-        console.log(err);
-        return reject(err);
-      }
-
-      if (body) {
-        var body = JSON.parse(body);
-        if (body.result && body.result.length !== 0) {
-          // console.log("   5 min candles recieved for %s".info, market);
-
-          var candlesUnsliced = body.result;
-
-          if (isOldPump) {
-            candlesUnsliced = candlesUnsliced.filter(a => a.T <= options.dateOfPump);
-            // console.log("DATEOFPUMPACTIVATED ==== ==== ==== ==== ====".operations);
-            // console.log("date of pump is " + options.dateOfPump);
-            // console.log(body.result.slice(-1));
-            // console.log(candlesUnsliced.slice(-1));
-          }
-          // Ne garder que les X dernières candles
-          var candlesToConsider = [];
-          if (options.nbPeriodsTill == 0) {
-            candlesToConsider = candlesUnsliced.slice(-options.nbPeriodsFrom);
-          } else {
-            candlesToConsider = candlesUnsliced.slice(-options.nbPeriodsFrom, -options.nbPeriodsTill);
-          }
-          // console.log('   There are %s 5minCandles to consider'.result, candlesToConsider.length);
-          // END =============== RESOLVE
-          var _object = {
-            market : market,
-            rawData : {
-              fiveMinCandles : candlesToConsider,
-              lastFiveMinCandleVolume : candlesToConsider[candlesToConsider.length-1] ? candlesToConsider[candlesToConsider.length-1].BV : 0
-            }
-          };
-          resolve(_object);
-
-        } else {
-          reject("getFiveMinCandles() - no body recieved for " + market.toUpperCase() + body);
-        }
-      }
-    })
+  Promise.all(algoPromise).then(() => {
+    console.log("FINISHED".operations)
+  }).catch((err) => {
+    return console.log(err)
   })
 }
+
+function takeDecision() {
+  console.log('TAKING DECISION'.operations);
+
+  setTimeout(() => {
+    launchPumpAnalyse(false);
+  }, algoPumpResult.algoParameters.scanFrequency);
+
+  var p = algoPumpResult.algoParameters;
+  var r = algoPumpResult.results;
+
+  r = r.filter(a => a.calculatedData);
+
+  r = r.filter(a => a.calculatedData.lastFiveMinCandleIsPositive == p.lastFiveMinCandleIsPositive); // Ne garde que les candles pos
+  r = r.filter(a => a.calculatedData.lastOnMeanRatio >= p.lastOnMeanRatio); // Ne garde que certains ratio
+  r = r.filter(a => a.calculatedData.meanVolume <= p.maxMeanVolume);
+  r = r.filter(a => a.rawData.lastFiveMinCandleVolume >= p.minLastVolume);
+
+}
+
 
 // WIP            WIP           WIP         WIP         WIP         WIP         WIP
 function getOneMinCandles(market, lastCandle) {
@@ -256,7 +227,70 @@ function getOneMinCandles(market, lastCandle) {
   })
 }
 
-// DONE ========================================================================
+
+//==============================================================================
+//---------------------- ALGO PUMP SPECIFIC FUNCTIONS --------------------------
+
+
+// Prépare algoPumpResult avec tous les markets
+var allCurrencyArray = [];
+function getAllMarketsName (currencyFilter) {
+  return new Promise((resolve, reject) => {
+    request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
+      if (err) {
+        console.log('getAllMarketsName Fct error'.error);
+        return reject(err);
+      }
+      // Parse le resultat en JSON
+      body = JSON.parse(body);
+      var _r = body.result;
+
+      // Créer un array avec seulement les XXX de devises.
+      for (var _i in _r) {
+        allCurrencyArray.push(_r[_i].BaseCurrency + '-' + _r[_i].MarketCurrency);
+      }
+      if (currencyFilter) {
+        allCurrencyArray = allCurrencyArray.filter(s => s.substring(0,3) == currencyFilter);
+      }
+      console.log('== getAllMarketsName() completed : %s markets'.success, allCurrencyArray.length);
+
+      // Retire les monnaies qui sont blacklistées
+      for (var _i in blacklist) {
+        allCurrencyArray = allCurrencyArray.filter(s => s !== blacklist[_i]);
+      }
+
+      // Place les markets dans algoPumpResult
+      for (var _i in allCurrencyArray) {
+        algoPumpResult.results.push({market : allCurrencyArray[_i]})
+      }
+      console.log("allCurrencyArray is in algoPumpResult".info);
+      return resolve();
+    })
+  })
+}
+
+// Analyse un market en particulier
+function analyse(market, isOldPump) {
+  return new Promise((resolve, reject) => {
+
+    getFiveMinCandles(market, algoPumpResult.algoParameters, isOldPump)
+    .then((_object) => {
+        // Lance analyse des candles de 5 min
+      calculateFiveMinData(_object);
+        //console.log(util.inspect(algoPumpResult, false, null))
+      progress++;
+      return resolve();
+    })
+    .catch((err) => {
+      console.log("Error in launchPumpAnalyse() for %s".error, market);
+      progressError ++;
+      console.log(err);
+      return reject(err);
+    })
+  })
+}
+
+// Réalise les calculs sur les candles
 function calculateFiveMinData (_object) { // Variance = STD en vrai
   var candles = _object.rawData.fiveMinCandles;
 
@@ -287,7 +321,7 @@ function calculateFiveMinData (_object) { // Variance = STD en vrai
   // console.log("   has been Discontinious %s times".result, isDiscontinious);
 
   // check if lastCandleIsPositive
-  var lastCandleIsPositive = candles[candles.length-1].C - candles[candles.length-1].O > 0;
+  var lastCandleIsPositive = candles[candles.length-1].C - candles[candles.length-1].O >= 0;
   // console.log("   lastCandleIsPositive : %s".result, lastCandleIsPositive);
 
   // Update algoPumpResult with data
@@ -303,16 +337,65 @@ function calculateFiveMinData (_object) { // Variance = STD en vrai
     updateAlgoPumpResult(_object);
 }
 
-var progress = 0;
-var progressError = 0;
-var feedbackTimeout;
+// Récupère les 20 dernières 5min Candles
+function getFiveMinCandles (market, options, isOldPump) {
+  //console.log('== Getting 5 min Candles for %s', market.toUpperCase());
+  return new Promise((resolve, reject) => {
+    request('https://bittrex.com/Api/v2.0/pub/market/GetTicks?marketName=' + market
+      +'&tickInterval=' + "fiveMin" + '&_=1500915289433',
+    (err, response, body) => {
+      if (err) {
+        console.log('Error requesting fiveMin Candles for %s'.error, market);
+        console.log(err);
+        return reject(err);
+      }
+
+      if (body) {
+        var body = JSON.parse(body);
+        if (body.result && body.result.length !== 0) {
+          // console.log("   5 min candles recieved for %s".info, market);
+
+          var candlesUnsliced = body.result;
+
+          if (isOldPump) {
+            candlesUnsliced = candlesUnsliced.filter(a => a.T <= options.dateOfPump);
+            // console.log("DATEOFPUMPACTIVATED ==== ==== ==== ==== ====".operations);
+            // console.log("date of pump is " + options.dateOfPump);
+            // console.log(body.result.slice(-1));
+            // console.log(candlesUnsliced.slice(-1));
+          }
+          // Ne garder que les X dernières candles
+          var candlesToConsider = [];
+          if (options.nbPeriodsTill == 0) {
+            candlesToConsider = candlesUnsliced.slice(-options.nbPeriodsFrom);
+          } else {
+            candlesToConsider = candlesUnsliced.slice(-options.nbPeriodsFrom, -options.nbPeriodsTill);
+          }
+          // console.log('   There are %s 5minCandles to consider'.result, candlesToConsider.length);
+          // END =============== RESOLVE
+          var _object = {
+            market : market,
+            rawData : {
+              fiveMinCandles : candlesToConsider,
+              lastFiveMinCandleVolume : candlesToConsider[candlesToConsider.length-1] ? candlesToConsider[candlesToConsider.length-1].BV : 0
+            }
+          };
+          return resolve(_object);
+
+        } else {
+          return reject("getFiveMinCandles() - no body recieved for " + market.toUpperCase() + body);
+        }
+      }
+    })
+  })
+}
+
 // Push la réponse pour un marché dans results
 function updateAlgoPumpResult(data) {
   algoPumpResult.results = algoPumpResult.results.filter(a => a.market !== data.market);
   algoPumpResult.results.push(data);
 
 
-  progress++;
   console.log(progress + '/' + Number(allCurrencyArray.length-progressError) + ' (%s errors)', progressError);
 
   algoPumpResult.metadata.numberOfErrors = progressError;
@@ -329,54 +412,6 @@ function updateAlgoPumpResult(data) {
   }
 }
 
-// Envoie le feedback de l'avancement au client
-app.get('/api/runAlgoPump/:dateOfPump', (req,res) => {
-  if (req.params.dateOfPump !== 'false') {
-    algoPumpResult.algoParameters.dateOfPump = req.params.dateOfPump;
-    updateAlgoPumpOptionsTxt(algoPumpResult.algoParameters);
-    console.log("Date of Pump has been updated".important);
-    launchPumpAnalyse(true);
-  } else {
-    launchPumpAnalyse(false);
-  }
-})
-
-//==============================================================================
-//---------------------- ALGO PUMP SPECIFIC FUNCTIONS --------------------------
-
-
-// Prépare algoPumpResult avec tous les markets
-var allCurrencyArray = [];
-function getAllMarketsName (currencyFilter) {
-  return new Promise((resolve, reject) => {
-    request('https://bittrex.com/api/v1.1/public/getmarkets', (err, response, body) => {
-      if (err) {
-        console.log('getAllMarketsName Fct error'.error);
-        return reject(err);
-      }
-      // Parse le resultat en JSON
-      body = JSON.parse(body);
-      var _r = body.result;
-
-      // Créer un array avec seulement les XXX de devises.
-      for (var _i in _r) {
-        allCurrencyArray.push(_r[_i].BaseCurrency + '-' + _r[_i].MarketCurrency);
-      }
-      if (currencyFilter) {
-        allCurrencyArray = allCurrencyArray.filter(s => s.substring(0,3) == currencyFilter);
-      }
-      console.log('== getAllMarketsName() completed : %s markets'.success, allCurrencyArray.length);
-
-      // Place les markets dans algoPumpResult
-      for (var _i in allCurrencyArray) {
-        algoPumpResult.results.push({market : allCurrencyArray[_i]})
-      }
-      console.log("allCurrencyArray is in algoPumpResult".info);
-      return resolve();
-    })
-  })
-}
-
 //==============================================================================
 //------------------------- SOCKET.IO SHIT HERE --------------------------------
 // io.on('connection', (client) => {
@@ -391,6 +426,18 @@ function sendAlgoPumpResult () {
 
 //==============================================================================
 //---------------------- MY API SHIT GOES HERE ---------------------------------
+
+// Envoie le feedback de l'avancement au client
+app.get('/api/runAlgoPump/:dateOfPump', (req,res) => {
+  if (req.params.dateOfPump !== 'false') {
+    algoPumpResult.algoParameters.dateOfPump = req.params.dateOfPump;
+    updateAlgoPumpOptionsTxt(algoPumpResult.algoParameters);
+    console.log("Date of Pump has been updated".important);
+    launchPumpAnalyse(true);
+  } else {
+    launchPumpAnalyse(false);
+  }
+})
 
 app.get('/api/changeDateOfPump/:dateOfPump', (req, res) => {
     console.log("changing dateOfPump".important);

@@ -1,5 +1,0 @@
-[
-	"BTC-LTC",
-	"BTC-ETH",
-	"BTC-XRP"
-]
