@@ -9,6 +9,12 @@ const fs = require('fs');
 const mathjs = require('mathjs');
 const io = require('socket.io')();
 
+// Slack Shit
+var Slack = require('slack-node');
+webhookUri = "__uri___";
+slack = new Slack();
+slack.setWebhook("https://hooks.slack.com/services/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");
+
 
 var bodyParser = require('body-parser');
 app.use(bodyParser.json()); // support json encoded bodies
@@ -124,6 +130,17 @@ ReadAlgoPumpOptionsTxt()
 // TESTS =======================================================================
 
 
+function sendToSlack (message) {
+slack.webhook({
+  channel: "#server_feedback",
+  username: "CryptoBot",
+  text: message
+}, function(err, response) {
+  if (err) { return console.error(err);}
+});
+};
+
+
 // Global launch (analyse toutes les markets)
 function launchPumpAnalyse (isOldPump) {
   // Set algo metadata for analyse start
@@ -159,20 +176,27 @@ function launchPumpAnalyse (isOldPump) {
 function takeDecision() {
   console.log('TAKING DECISION'.operations);
 
-  setTimeout(() => {
-    launchPumpAnalyse(false);
-  }, algoPumpResult.algoParameters.scanFrequency);
+  // setTimeout(() => {
+  //   launchPumpAnalyse(false);
+  // }, algoPumpResult.algoParameters.scanFrequency);
 
   var p = algoPumpResult.algoParameters;
   var r = algoPumpResult.results;
 
-  r = r.filter(a => a.calculatedData);
+  // r = r.filter(a => a.calculatedData);
+  //
+  // r = r.filter(a => a.calculatedData.lastFiveMinCandleIsPositive == p.lastFiveMinCandleIsPositive); // Ne garde que les candles pos
+  // r = r.filter(a => a.calculatedData.lastOnMeanRatio >= p.lastOnMeanRatio); // Ne garde que certains ratio
+  // r = r.filter(a => a.calculatedData.meanVolume <= p.maxMeanVolume);
+  // r = r.filter(a => a.rawData.lastFiveMinCandleVolume >= p.minLastVolume);
 
-  r = r.filter(a => a.calculatedData.lastFiveMinCandleIsPositive == p.lastFiveMinCandleIsPositive); // Ne garde que les candles pos
-  r = r.filter(a => a.calculatedData.lastOnMeanRatio >= p.lastOnMeanRatio); // Ne garde que certains ratio
-  r = r.filter(a => a.calculatedData.meanVolume <= p.maxMeanVolume);
-  r = r.filter(a => a.rawData.lastFiveMinCandleVolume >= p.minLastVolume);
+  r = r.slice(5,6);
 
+
+  if (r.length !== 0) {
+    sendToSlack("*NEW MATCH !!* à " + new Date() + "\n"
+          + r[0].market)
+  }
 }
 
 

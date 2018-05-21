@@ -15,13 +15,13 @@ import './PumpDisplay.css';
 
 // SOCKET
 import openSocket from 'socket.io-client';
-const  socket = openSocket('http://localhost:8080');
+const  socket = openSocket('http://88.190.102.232:8080');
 
 class PumpDisplay extends Component {
   state = {
     algoPumpResult : null,
     onlyPosCandles : true,
-    timeMachineDateInput : '2019-03-09T23:20:00',
+    timeMachineDateInput : '',
     timeMachineIsEnabled : false
   }
 
